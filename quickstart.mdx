@@ -1,47 +1,70 @@
 ---
 title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+description: "Sign up, connect your first tool, and reach a hydrated workspace in about two minutes."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
-
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
+The IntegrateWise onboarding does not just "create a workspace." It resolves a **Spine Context** — who you are, the org you're in, the reality you connect, and the depth at which you see it — then hydrates the Spine from your real data before the workbench opens.
 
 ## Prerequisites
 
-Before you begin, you must have:
+- An invite or signup at [app.integratewise.ai](https://app.integratewise.ai).
+- Admin access on at least one tool you plan to connect (CRM, support, finance, or docs).
 
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
+## The four onboarding steps
 
-## Get started
+The L0 flow walks you through four UI steps that produce a single `OnboardingData` object.
 
 <Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
-
-    ```bash
-    npm install your-package
-    ```
+  <Step title="Welcome">
+    Authenticate with your work email. The gateway issues an RS256 JWT and establishes your identity.
   </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
-
-    ```bash
-    your-cli init
-    ```
+  <Step title="Profile">
+    Pick your use case (`personal`, `work`, or `business`), department, industry, and company size. These resolve to a canonical **domain** (for example `CUSTOMER_SUCCESS`, `BIZOPS`, `SALES`) and an operating context (`CTX_CS`, `CTX_BIZOPS`, `CTX_SALES`).
   </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
-
-    ```bash
-    your-cli start
-    ```
+  <Step title="Goals">
+    Name your workspace and set the goal you want IntegrateWise to drive toward. This becomes part of your Spine Context, not a label on a folder.
+  </Step>
+  <Step title="Connect">
+    Authorize one or more tools through Nango. Each connector is tagged Flow A (structured), B (unstructured), or C (AI interactions). Your first connector kicks off Spine hydration.
   </Step>
 </Steps>
 
-<Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
+## What happens behind the scenes
 
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
-</Tip>
+While you watch the loader, the system runs eight constitutional phases:
+
+1. **Identity** — gateway credential auth, RS256 JWT.
+2. **Organization discovery** — `USE_CASE_DOMAINS` and `DEPARTMENT_CTX_MAP` resolve a canonical domain and `CTX_*`.
+3. **Reality connections** — each authorized tool starts streaming via the Loader.
+4. **Spine hydration** — the 8-stage pipeline classifies, normalizes, and writes the **Spine** (D1 domain partitions). The workbench arrives pre-filled.
+5. **Memory activation** — conversational, org, and personal memory begin accumulating through the continuity pipeline.
+6. **Projection generation** — your Spine Context yields nav, modules, entity views, and metrics.
+7. **Governance activation** — the HARD GATE is live. AI may think and propose, but never act without an `x-approval-token`.
+8. **Continuity activation** — the IW Continuity Bridge is on; the same context is shared across every AI, tool, and session.
+
+The visible path is budgeted to about two minutes (`STEP_TIMINGS`). Spine hydration runs as a tracked job (`creamyJobId`) so the desk is populated, not blank.
+
+## After onboarding
+
+When you land on your workbench:
+
+- The Spine already holds your normalized accounts, contacts, deals, tickets, tasks, and documents.
+- The Twin (⌘J overlay) starts surfacing signals — renewal risks, deal slips, ticket spikes — with evidence.
+- Every write-back to a connected tool waits for your approval in the Approval Center.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Understand the Spine" icon="diagram-project" href="/concepts/spine">
+    One canonical entity per real-world thing, across every tool you connect.
+  </Card>
+  <Card title="Connect more tools" icon="plug" href="/guides/connectors">
+    Add Flow A / B / C connectors and grow your Spine.
+  </Card>
+  <Card title="Use the API" icon="code" href="/api/overview">
+    Hit `/api/v1/workspace/*` and `/api/v1/cognitive/twin/*` through the gateway.
+  </Card>
+  <Card title="Governance model" icon="shield-check" href="/concepts/governance">
+    Understand how the HARD GATE keeps AI under human control.
+  </Card>
+</CardGroup>

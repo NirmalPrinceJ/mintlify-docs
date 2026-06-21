@@ -1,0 +1,66 @@
+---
+title: "Twin & Entity 360"
+description: "L2 intelligence routes — assembled entity views, predictions, and natural-language queries."
+---
+
+The Twin is the L2 intelligence layer. It is **read-only** to the Spine, and all writes flow through the [governance HARD GATE](/concepts/governance).
+
+## Entity 360
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/api/v1/entity360/:id` | Get the entity 360 view for a single entity |
+| POST | `/api/v1/entity360` | Get with explicit layer selection |
+| POST | `/api/v1/entity360/batch` | Batch multiple entities in one call |
+
+Entity 360 is **assembled on read** by `entity360-assembler.ts`. The response includes the canonical entity, its relationships, related signals, and recent memory — everything the Twin needs to reason about that entity.
+
+## Twin reasoning
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/api/v1/cognitive/twin/360/:id` | Entity 360 + trigger insights |
+| POST | `/api/v1/cognitive/twin/evaluate` | Batch trigger evaluation |
+| GET | `/api/v1/cognitive/twin/triggers` | List registered triggers |
+| POST | `/api/v1/cognitive/twin/ask` | Natural language query |
+| POST | `/api/v1/cognitive/twin/predict` | Prediction (renewal, risk) |
+
+### Ask the Twin
+
+```http
+POST /api/v1/cognitive/twin/ask
+Authorization: Bearer <jwt>
+x-tenant-id: <tenant_uuid>
+x-user-id: <user_uuid>
+Content-Type: application/json
+
+{
+  "question": "Which accounts are at renewal risk this quarter?",
+  "scope": "tenant"
+}
+```
+
+The Twin reads grounded context from the Spine, runs through the cognitive routes (`drift-detection`, `simulation`, `trust-score`, `decision-memory`), and returns an answer **with the evidence** — the Spine entities and signals it used to reach the conclusion.
+
+### Predict
+
+```http
+POST /api/v1/cognitive/twin/predict
+Authorization: Bearer <jwt>
+x-tenant-id: <tenant_uuid>
+x-user-id: <user_uuid>
+Content-Type: application/json
+
+{
+  "type": "renewal_risk",
+  "entityId": "acc_..."
+}
+```
+
+Returns a structured prediction with a confidence score, the features that drove it, and the relevant signals.
+
+## What the Twin will not do
+
+- Mutate a connected tool directly. All write-backs go through governance.
+- Promote memory to `org_memory` without human approval.
+- Access another tenant's Spine — tenant isolation is enforced at the gateway.

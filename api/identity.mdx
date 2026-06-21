@@ -1,0 +1,55 @@
+---
+title: "Identity resolution"
+description: "Manage merge candidates and identity decisions across connected tools."
+---
+
+Identity resolution is how the Spine collapses overlapping records from different tools into one canonical entity. When the system isn't sure two records are the same, they surface as **merge candidates** for human review.
+
+## Endpoints
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/api/v1/identity/candidates` | List merge candidates |
+| POST | `/api/v1/identity/candidates/:id/merge` | Merge into one canonical entity |
+| POST | `/api/v1/identity/candidates/:id/keep-separate` | Mark as not duplicates |
+| POST | `/api/v1/identity/candidates/:id/defer` | Defer the decision |
+| GET | `/api/v1/identity/stats` | Resolution statistics |
+
+## List candidates
+
+```http
+GET /api/v1/identity/candidates?type=account&limit=25
+Authorization: Bearer <jwt>
+x-tenant-id: <tenant_uuid>
+```
+
+Each candidate carries:
+
+- The two (or more) source records.
+- The confidence score and the traits that drove the match.
+- The proposed canonical entity.
+
+## Merge
+
+```http
+POST /api/v1/identity/candidates/:id/merge
+Authorization: Bearer <jwt>
+x-tenant-id: <tenant_uuid>
+Content-Type: application/json
+
+{
+  "canonicalId": "ent_..."
+}
+```
+
+Merging is recorded in `spine_audit_log` and propagates to all projections immediately.
+
+## Statistics
+
+```http
+GET /api/v1/identity/stats
+Authorization: Bearer <jwt>
+x-tenant-id: <tenant_uuid>
+```
+
+Returns counts of resolved entities, pending candidates, and recently merged records — useful for an Identity Resolution dashboard.

@@ -1,0 +1,70 @@
+---
+title: "Data flows"
+description: "Flow A, B, and C — structured truth, unstructured context, and AI interactions."
+---
+
+Every connector and ingestion path in IntegrateWise is tagged as one of three flows. Each flow has a distinct path through the Spine.
+
+## Flow A — Structured truth
+
+Tools that hold authoritative records: CRM, billing, support, finance, project management, HR.
+
+```
+Connector  →  Loader  →  Normalizer (8 stages)  →  Spine (D1 partitions)
+                                                          │
+                                                          └── KV hot cache + AI Search
+```
+
+- Webhook receivers and scheduled API pullers enqueue raw events; the Loader never reasons.
+- The 8-stage pipeline classifies the event, refines its trait set, picks a canonical entity type, runs identity resolution against existing entities, and writes to the correct D1 partition.
+- Examples: HubSpot, Salesforce, Zendesk, Stripe, Jira, Linear, QuickBooks, Xero.
+
+## Flow B — Unstructured context
+
+Documents, emails, notes, files — anything that holds context but isn't a row in a CRM.
+
+```
+Source  →  Loader  →  Knowledge service  →  Vectorize + AI Search
+                              │
+                              └── linked back to Spine entities by reference
+```
+
+- Content is chunked, embedded, and indexed for retrieval.
+- Where possible, chunks are linked back to canonical Spine entities (an email about "Acme Inc" is linked to the canonical Acme account).
+- Examples: Google Drive, Notion, email threads, Slack channels, PDF uploads.
+
+## Flow C — AI interactions
+
+Sessions and agents that **read** grounded context and **write** only through governed paths.
+
+```
+AI session (Twin, ChatGPT, Claude, Cursor, ...)
+        │
+        ├── reads ──▶ Spine projections + memory
+        │
+        └── proposes ──▶ Govern (HARD GATE) ──▶ Approval ──▶ Act ──▶ writeback ──▶ signal
+```
+
+- AI may **think** and **propose** freely. It may not act without an `x-approval-token`.
+- Approved actions become a client-side executable Playbook (JSON), keeping credentials on the user side.
+- Every write-back emits a signal that re-enters the loop.
+
+## The unified core loop
+
+```
+Connect tools  →  Data flows in  →  Engine normalizes  →  Spine stores truth
+  →  Intelligence surfaces what matters  →  User reviews and approves
+  →  Action executes  →  System learns
+```
+
+Every cycle makes the next one smarter. AI learns from human decisions. The Spine grows with the business.
+
+## Memory layer
+
+Memory is the continuity layer that spans every flow:
+
+| Memory type | Scope |
+| --- | --- |
+| `conversational_memory` | A single session with the Twin. |
+| `personal_memory` | A single user, across sessions and tools. |
+| `org_memory` | The tenant, across users — gated by human-approved promotion. |

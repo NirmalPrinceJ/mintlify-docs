@@ -1,0 +1,79 @@
+---
+title: "API overview"
+description: "All API traffic enters through the Gateway. Authenticate once, route everywhere."
+---
+
+All IntegrateWise API routes go through the Gateway at `gateway.integratewise.ai` under `/api/v1/*`. Downstream workers are not exposed to the public internet — they're reached through Cloudflare service bindings.
+
+## Base URL
+
+```
+https://gateway.integratewise.ai/api/v1
+```
+
+For local development, the gateway listens on port `8786`.
+
+## Authentication
+
+Every request needs three headers:
+
+| Header | Value |
+| --- | --- |
+| `Authorization` | `Bearer <jwt>` — an RS256 JWT issued by the gateway. |
+| `x-tenant-id` | UUID of the tenant the request is scoped to. |
+| `x-user-id` | UUID of the user making the request. |
+
+JWTs are obtained by signing in through the app. The Gateway verifies them, enforces tenant scoping, and filters responses before they leave the edge.
+
+## What sits behind the gateway
+
+| Endpoint family | Purpose | Reference |
+| --- | --- | --- |
+| `/api/v1/workspace/*` | L1 organic projections — accounts, tasks, health cards. Never exposes `entity_type`. | [Workspace](/api/workspace) |
+| `/api/v1/cognitive/twin/*` | L2 intelligence — entity 360, predictions, natural-language queries. | [Twin](/api/twin) |
+| `/api/v1/entity360/*` | Assembled entity views with all related signals and relationships. | [Twin](/api/twin) |
+| `/api/v1/identity/*` | Identity resolution — merge candidates and decisions. | [Identity](/api/identity) |
+| `/api/v1/connectors/*` | Connector OAuth and statistics. | [Connectors](/api/connectors) |
+| `/api/v1/intelligence/signals` | Active signals across the Spine. | [Intelligence](/api/intelligence) |
+| `/api/v1/cognitive/think/*` | Reasoning routes — manual analysis, simulation, drift detection. | [Intelligence](/api/intelligence) |
+| `/api/v1/cognitive/govern/*` | Governance policies and approval flow. | [Intelligence](/api/intelligence) |
+| `/api/v1/knowledge/*` | Flow B — memories, topics, documents, ingestion. | [Knowledge](/api/knowledge) |
+| `/api/v1/pipeline/*` | Pipeline status and Spine entities. | [Pipeline](/api/pipeline) |
+
+## Response shape
+
+Workspace responses are **organic** — they describe what the user sees, not the schema:
+
+```json
+{
+  "name": "Acme Inc",
+  "health": {
+    "score": "85%",
+    "label": "Healthy",
+    "trend": "up",
+    "change": "+5% from last week"
+  },
+  "revenue": {
+    "amount": "$2.4M",
+    "trend": "stable"
+  }
+}
+```
+
+The Workflow BFF performs the transformation; the frontend never sees `entity_type`, `health_score`, or `arr`.
+
+## Error model
+
+The gateway returns standard HTTP status codes. Errors carry a JSON body:
+
+```json
+{
+  "error": {
+    "code": "TENANT_FORBIDDEN",
+    "message": "Tenant scope mismatch.",
+    "correlationId": "01J..."
+  }
+}
+```
+
+The `correlationId` matches log entries across workers — include it when filing support tickets.

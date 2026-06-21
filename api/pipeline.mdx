@@ -1,0 +1,57 @@
+---
+title: "Pipeline API"
+description: "Pipeline status and Spine entities — schema-aware, internal-tier."
+---
+
+The Pipeline routes expose schema-aware access to the Spine. They are intended for internal tools, dashboards, and the cognitive layer — **not** for frontend code. (Frontend code should use the [Workspace API](/api/workspace), which returns organic projections.)
+
+## Endpoints
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/api/v1/pipeline/status` | Pipeline health and stage stats |
+| GET | `/api/v1/cognitive/spine/entities` | Spine entities (schema-aware) |
+| GET | `/api/v1/cognitive/spine/dashboard` | Aggregate dashboard stats |
+
+## Pipeline status
+
+```http
+GET /api/v1/pipeline/status
+Authorization: Bearer <jwt>
+x-tenant-id: <tenant_uuid>
+```
+
+Returns per-stage health for the 8-stage pipeline:
+
+1. Connectivity
+2. Loader
+3. Normalizer
+4. Entity resolution
+5. Spine write
+6. Memory indexing
+7. Signal emission
+8. Governance
+
+Each stage reports throughput, lag, and recent failures.
+
+## Spine entities
+
+```http
+GET /api/v1/cognitive/spine/entities?type=account&limit=100
+Authorization: Bearer <jwt>
+x-tenant-id: <tenant_uuid>
+```
+
+Returns canonical Spine entities with their `entity_type`, raw fields, relationships, and signal references. Use this when the caller (the Twin, an internal dashboard) genuinely needs the schema.
+
+## Dashboard stats
+
+```http
+GET /api/v1/cognitive/spine/dashboard
+```
+
+Aggregate counts by partition (`decide_data`, `build_data`, `grow_data`, `run_data`, `cross_data`) and by entity type.
+
+## Why frontend code should not call these
+
+The [frontend/backend separation](/concepts/architecture#frontend--backend-separation) is structural. The frontend is schema-free; if it starts reading raw `entity_type` and field names, the whole BFF translation contract breaks. Use the [Workspace API](/api/workspace) and [Twin API](/api/twin) instead.

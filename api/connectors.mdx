@@ -1,0 +1,52 @@
+---
+title: "Connectors API"
+description: "OAuth, callbacks, and connector statistics."
+---
+
+Connector endpoints handle the OAuth dance for third-party tools and surface aggregated connector health.
+
+## Endpoints
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/api/v1/connectors/:provider/authorize` | Start OAuth for a provider |
+| GET | `/api/v1/connectors/:provider/callback` | OAuth callback |
+| GET | `/api/v1/connectors/stats` | Aggregated connector statistics |
+
+## Start OAuth
+
+```http
+GET /api/v1/connectors/hubspot/authorize
+Authorization: Bearer <jwt>
+x-tenant-id: <tenant_uuid>
+```
+
+Returns a redirect URL to the provider's consent screen. The frontend redirects the user; on consent the provider redirects back to `/callback`.
+
+## OAuth callback
+
+```http
+GET /api/v1/connectors/hubspot/callback?code=...&state=...
+```
+
+The callback validates the `state` token, exchanges the code for tokens, persists them in `services/tenants`, registers the connector, and kicks off initial hydration through `services/connector`.
+
+## Statistics
+
+```http
+GET /api/v1/connectors/stats
+Authorization: Bearer <jwt>
+x-tenant-id: <tenant_uuid>
+```
+
+Returns per-connector counts of ingested events, entities created, last-sync timestamps, and current health. Use this on the Connectors panel and in the Operations Workbench.
+
+## Listing active connectors
+
+For a frontend list of what's connected, use the [Workspace API](/api/workspace):
+
+```http
+GET /api/v1/workspace/connectors
+```
+
+That endpoint returns organic, display-ready connector descriptors. The `/connectors/stats` endpoint is the schema-aware counterpart.

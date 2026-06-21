@@ -1,0 +1,70 @@
+---
+title: "Connectors"
+description: "Connect the tools that hold your reality and tag them by data flow."
+---
+
+A connector is the bridge between a third-party tool (Salesforce, HubSpot, Zendesk, Stripe, Jira, Google Drive, ...) and the Spine. Connectors are authorized through Nango and tagged by the data flow they carry.
+
+## The three connector flows
+
+| Flow | Carries | Examples |
+| --- | --- | --- |
+| **Flow A** | Structured truth — authoritative records | HubSpot, Salesforce, Zendesk, Stripe, Jira, QuickBooks |
+| **Flow B** | Unstructured context — documents, emails, notes | Google Drive, Notion, Gmail, Slack |
+| **Flow C** | AI interactions — sessions and agents | Claude, ChatGPT, Cursor, Perplexity |
+
+## Adding a connector
+
+<Steps>
+  <Step title="Open the Connectors panel">
+    From the workbench, open **Settings → Connectors**, or run the OAuth flow during onboarding's **Connect** step.
+  </Step>
+  <Step title="Start OAuth">
+    Click the provider. The frontend calls `GET /api/v1/connectors/:provider/authorize` and redirects you to the provider's consent screen.
+  </Step>
+  <Step title="Complete OAuth">
+    The provider redirects to `GET /api/v1/connectors/:provider/callback`. The callback persists the token, registers the connector, and tags its flow.
+  </Step>
+  <Step title="Hydration starts">
+    The Loader begins enqueuing raw events. The 8-stage pipeline normalizes them and writes canonical entities to the Spine. You can watch progress in the workbench's freshness indicators.
+  </Step>
+</Steps>
+
+## What happens to your data
+
+Once a connector is live:
+
+- Inbound webhooks and scheduled pulls enqueue raw events through `services/connector`.
+- The 8-stage pipeline classifies each event, runs identity resolution, and writes to the right D1 partition.
+- Existing canonical entities are merged where possible (HubSpot `Contact` + Salesforce `Lead` for the same person → one canonical Person).
+- The workbench picks up the changes through projections; the Twin can immediately reason over the new data.
+
+## Identity resolution and merges
+
+When two records look like the same real-world thing but the system isn't sure, they show up as **merge candidates**:
+
+| Endpoint | Action |
+| --- | --- |
+| `GET /api/v1/identity/candidates` | List merge candidates |
+| `POST /api/v1/identity/candidates/:id/merge` | Merge into one canonical entity |
+| `POST /api/v1/identity/candidates/:id/keep-separate` | Mark as not duplicates |
+| `POST /api/v1/identity/candidates/:id/defer` | Defer the decision |
+| `GET /api/v1/identity/stats` | Resolution statistics |
+
+## Listing what's connected
+
+```http
+GET /api/v1/workspace/connectors
+Authorization: Bearer <jwt>
+x-tenant-id: <tenant_uuid>
+```
+
+```http
+GET /api/v1/connectors/stats
+Authorization: Bearer <jwt>
+x-tenant-id: <tenant_uuid>
+```
+
+## Governance reminder
+
+Connectors are read-and-write surfaces, but writes always go through the [HARD GATE](/concepts/governance). The Twin proposes; you approve; the approved Playbook runs client-side and reports back.

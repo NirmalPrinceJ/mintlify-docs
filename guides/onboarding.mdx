@@ -1,0 +1,65 @@
+---
+title: "Onboarding flow"
+description: "How L0 resolves a Spine Context and hydrates the workbench before you see it."
+---
+
+> Onboarding does not assign a workspace. Onboarding creates a **Spine Context**. Workspaces are projections computed from that Spine Context.
+
+This is the doctrine that prevents the "which workspace do I land in?" confusion. A user does not pick a workspace — onboarding resolves who they are, what org they're in, what reality they connect, and how deep they see, into a single Spine Context. Every surface is a projection of that context.
+
+## The four UI steps
+
+The L0 flow lives in `apps/web/src/components/activation/onboarding/` and produces one `OnboardingData` object:
+
+```
+Welcome  →  Profile  →  Goals  →  Connect
+```
+
+```
+useCase: personal | work | business    industry, department, companySize
+goal, workspaceName                    connectors: [{ provider, flowType: A | B | C }]
+creamyJobId (Spine-build job)          spineInitialized
+```
+
+Two pure maps turn that into a Spine Context:
+
+- `USE_CASE_DOMAINS` — `useCase` + `department` → canonical domain (`CUSTOMER_SUCCESS`, `BIZOPS`, `SALES`, `PRODUCT_ENGINEERING`, ...).
+- `DEPARTMENT_CTX_MAP` — `department` → operating context (`CTX_CS`, `CTX_BIZOPS`, `CTX_SALES`, ...).
+
+## The constitutional phases
+
+| Phase | What happens |
+| --- | --- |
+| **1. Identity** | Authenticate; gateway credential auth issues an RS256 JWT. |
+| **2. Organization Discovery** | Resolve `useCase` + department + industry + size → canonical domain and `CTX_*`. |
+| **3. Reality Connections** | Connect the tools that hold the org's reality (Nango). Each connector is tagged Flow A / B / C. |
+| **4. Spine Hydration** | Real data flows in; the 8-stage pipeline normalizes and writes the Spine (D1 partitions). The workbench arrives pre-filled. |
+| **5. Memory Activation** | Conversational, org, and personal memory begin accumulating through the continuity pipeline. |
+| **6. Projection Generation** | The Spine Context yields projections — nav, modules, entity views, metrics. |
+| **7. Governance Activation** | The HARD GATE is live: AI may think and propose, never act without `x-approval-token`. |
+| **8. Continuity Activation** | The IW Continuity Bridge is on; context is shared across every AI, tool, and session. |
+| **Exit: Desk** | The user arrives at their projected workbench with the Spine already populated. |
+
+`STEP_TIMINGS` budget the visible path to about two minutes. Spine hydration runs as a tracked job (`creamyJobId`) so the desk is populated, not blank.
+
+## Why this is not "create a workspace"
+
+```
+WRONG:  signup → pick a workspace → fill it
+RIGHT:  resolve Spine Context (identity + org + reality + depth)
+        → hydrate Spine → project surfaces
+```
+
+Consequences:
+
+1. **One context, resolved once.** Department / persona is resolved a single time into the Spine Context, never re-derived per surface.
+2. **Surfaces are computed.** The "workspace" you see is a projection of the context, so the same account renders correctly for a CS practitioner, a RevOps manager, and the founder.
+3. **Pre-filled, not empty.** Phase 4 hydrates the Spine from real connected data before the desk opens.
+4. **Continuity from minute one.** The context and memory created here are the same substrate every future session, tool, and AI reads.
+
+## Invariants
+
+- Onboarding writes a Spine Context + hydrated Spine, never a standalone workspace store.
+- Domains and contexts come from canonical maps (`DOMAIN_SPINE_CONFIG`, `USE_CASE_DOMAINS`, `DEPARTMENT_CTX_MAP`) — no ad-hoc department strings.
+- All writes go through the pipeline to Cloudflare D1.
+- Governance is active before you can act; the Twin is read-only to the Spine.
