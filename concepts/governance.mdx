@@ -1,0 +1,42 @@
+---
+title: "Governance"
+description: "The HARD GATE: AI may think and propose, but never act without human approval."
+---
+
+Governance is not a setting — it is a structural property of IntegrateWise. The runtime is wired so that AI cannot mutate the outside world without a signed approval token.
+
+## The HARD GATE
+
+```
+Signal / change  →  Intelligence (Think)  →  Proposal
+   →  S8 Governance (HARD GATE)
+   →  Act  →  writeback  →  signal
+```
+
+- No execution without an `x-approval-token`. The Act service rejects unsigned proposals at the boundary.
+- HITL (Human-in-the-Loop) is mandatory for write-backs to connected tools.
+- Promotion to `org_memory` is human-approved through the L7 Governance Workbench.
+- The Twin is **read-only** to the Spine. Memory writes go through the continuity pipeline only.
+
+## What "approval" means in practice
+
+When the Twin proposes an action — close a ticket, update a deal stage, draft an outbound email — three things happen:
+
+1. **Proposal** — the Twin emits a structured proposal with the evidence behind it (which Spine entities and signals informed the decision).
+2. **Approval Center** — the proposal lands in your queue with a diff of the intended writeback. You can approve, modify, or reject.
+3. **Playbook handoff** — approved actions become a client-side executable **Playbook (JSON)**. Credentials never leave your environment; the writeback runs locally and reports back to the Spine, which emits a fresh signal.
+
+## Tenant isolation
+
+- Every Spine plane (entities, relationships, signals, memory) is tenant-isolated through `tenant_id`.
+- Downstream workers are not exposed to the public internet — they route through internal Cloudflare service bindings.
+- All public traffic enters through the Gateway at `gateway.integratewise.ai`, which enforces JWT + tenant headers before any downstream service is touched.
+- Every Spine access is audit-logged in `spine_audit_log`.
+
+## Why this matters
+
+The same context that makes the Twin powerful — full read access across every connected system — is exactly what makes ungoverned AI dangerous. The HARD GATE means:
+
+- AI **never** writes to a connected tool without explicit, per-action human approval.
+- Credentials for connected tools never leave the user side at action time.
+- Every action is auditable, with the evidence chain preserved in the Spine.

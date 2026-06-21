@@ -1,0 +1,61 @@
+---
+title: "Knowledge API"
+description: "Flow B — memories, topics, documents, and ingestion."
+---
+
+The Knowledge API surfaces the unstructured-context plane: documents, memories, and topics. It is what the Twin reads when it needs context beyond canonical entities.
+
+## Endpoints
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/api/v1/knowledge/memories` | List AI memories |
+| GET | `/api/v1/knowledge/topics` | List knowledge topics |
+| GET | `/api/v1/knowledge/documents` | List documents |
+| POST | `/api/v1/knowledge/ingest` | Ingest content |
+
+## Memories
+
+```http
+GET /api/v1/knowledge/memories?scope=org&limit=25
+Authorization: Bearer <jwt>
+x-tenant-id: <tenant_uuid>
+x-user-id: <user_uuid>
+```
+
+`scope` can be `conversational`, `personal`, or `org`. Promotion from `personal` to `org` is gated by the L7 Governance Workbench — see [Governance](/concepts/governance).
+
+## Topics
+
+```http
+GET /api/v1/knowledge/topics
+```
+
+Topics are clusters of related memories, documents, and entities. They power "related context" panels in the workbench.
+
+## Documents
+
+```http
+GET /api/v1/knowledge/documents?entityId=acc_...&limit=10
+```
+
+Returns documents linked to a Spine entity (e.g., all emails and PDFs that mention "Acme Inc"). Linkage is established during ingestion through entity reference resolution.
+
+## Ingest content
+
+```http
+POST /api/v1/knowledge/ingest
+Authorization: Bearer <jwt>
+x-tenant-id: <tenant_uuid>
+x-user-id: <user_uuid>
+Content-Type: application/json
+
+{
+  "source": "drive",
+  "mimeType": "application/pdf",
+  "contentRef": "drive://...",
+  "links": { "entities": ["acc_..."] }
+}
+```
+
+The Knowledge service chunks, embeds, and indexes the content into Vectorize + AI Search, then writes references back into the Spine where entities are mentioned.

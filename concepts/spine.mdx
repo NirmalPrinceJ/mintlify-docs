@@ -1,0 +1,101 @@
+---
+title: "The Spine"
+description: "One canonical entity per real-world thing, across every tool you connect."
+---
+
+> One Spine. Many projections. The Spine is the source of truth; every surface is a view of it.
+
+The Spine is the normalized, governed, tenant-isolated context substrate that sits behind every connector, tool, AI, and session. It is the product moat. Everything you see (workbenches, briefs, the Twin) is a **projection** of the Spine — never a raw tool table, never an ETL copy.
+
+## The four founding pieces
+
+| Piece | Role |
+| --- | --- |
+| **Loader** | Universal intake membrane. MCP-native. Tracks provenance. Never reasons. |
+| **Normalizer** | 8-stage cognitive pipeline (LLM-in-the-loop at stages 2, 3, 4, 6). Output is MCP tool calls, not JSON blobs. Normalization is paid **once per entity**. |
+| **Spine** | Context substrate across all connected tools. |
+| **Trait + Resource Type** | 18 core traits, 7 canonical resource types. Identity by nature, not label. |
+
+## What the Spine holds
+
+The Spine is composed of four planes. All four are tenant-isolated (`tenant_id` throughout).
+
+| Plane | Source of truth |
+| --- | --- |
+| **Entities** | Canonical records — one Person, one Account, one Deal — resolved across all tools. |
+| **Relationships** | The graph that connects entities. Exists nowhere else. |
+| **Signals** | `change → Think → HITL → Act → signal → loop`. |
+| **Memory** | `conversational_memory`, `org_memory`, `personal_memory` — the continuity layer. |
+
+## The entity model
+
+Every record is normalized to a **canonical entity type**. The full universe of valid types is computed in code (`packages/types/src/schema.ts` — `ALL_CANONICAL_ENTITY_TYPES`).
+
+This is what lets the Spine say:
+
+```
+HubSpot Contact  =  Salesforce Lead  =  Jira Reporter  =  one canonical Person
+HubSpot Company  =  Salesforce Account  =  one canonical Account
+```
+
+A new tool is absorbed by **trait detection → resource type → schema → pool → neutralized**. No per-tool special-casing inside the Spine.
+
+## Domains and partitions
+
+Entity types are organized into 12 department domains:
+
+```
+CUSTOMER_SUCCESS · REVOPS · SALES · MARKETING · PRODUCT_ENGINEERING · FINANCE
+SERVICE · PROCUREMENT · IT_ADMIN · STUDENT_TEACHER · BIZOPS · PERSONAL
+```
+
+Logical domains are written to **five physical D1 partitions**:
+
+| Partition | What it holds |
+| --- | --- |
+| `decide_data` | Strategy and commitments — OKRs, strategic objectives, business context, KPIs, decisions, commitments. |
+| `build_data` | Work and artifacts — tasks, workflows, documents, blockers, calendar events. |
+| `grow_data` | Revenue and customers — accounts, contacts, opportunities, tickets, renewals, risks. |
+| `run_data` | Operations — ops metrics. |
+| `cross_data` | Everything else — signals, episodes, learnings, generated insights (default). |
+
+The mapping is a pure function (`getDomainForType()`), so reads and writes can never split-brain.
+
+## The Fortress (write path)
+
+```
+Connector / Webhook / MCP / API
+        ↓  (S1 Connectivity → S2 Loader → S3 Normalizer → S4 Entity Resolution)
+Pipeline (Spine Writer)  ──writes──▶  D1 domain partitions
+        ↓                                       │
+   pipeline-process queue                       └── KV hot cache + AI Search index
+```
+
+- The pipeline is the **only** writer to canonical partitions.
+- The Twin is **read-only** to the Spine. Memory writes go through the continuity pipeline only.
+- Every Spine access is audit-logged (`spine_audit_log`).
+
+## Projections (read path)
+
+The frontend and Twin **never** read raw tool tables. They read projections of the Spine.
+
+| Projection | Endpoint | Surface |
+| --- | --- | --- |
+| Workspace views | `/api/v1/workspace/*` | L1 User Workbench |
+| Spine entities (grids, counts, batches) | `/api/v1/pipeline/entities` | L1 internal |
+| Entity 360 (assembled on read) | `/api/v1/entity360/:id` | L2 Intelligence Overlay |
+| Signals | `/api/v1/intelligence/signals` | L5 Operations Workbench |
+| Memory and knowledge | `/api/v1/knowledge/*` | L3 Twin, L4 Knowledge Workbench |
+
+A projection is a **view**, computed from the Spine. If a surface needs data, it asks the Spine for a projection — it never gets its own store.
+
+## The moat
+
+```
+N tools × M tools integrations  →  N + M
+(each tool speaks to the Spine once)
+```
+
+- Normalization is paid **once per entity**; every connected tool compounds the same Spine.
+- Entity resolution, the relationship graph, and the signal loop exist **in the Spine**, not in any single tool.
+- Other AIs and tools (Claude, ChatGPT, Cursor, Perplexity) integrate via MCP and become **surfaces** onto the Spine — they are not the runtime.

@@ -1,0 +1,88 @@
+---
+title: "Architecture"
+description: "The L0 → L1 → L2 model: onboarding, workspace, and intelligence over a Cloudflare-native Spine."
+---
+
+IntegrateWise is documented through two dimensions: the **user views** (what you experience) and the **systems engine** (the serverless infrastructure behind it). Both sit on top of a single Spine.
+
+## Three layers
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│ L0: ONBOARDING                                                │
+│ Tenant creation → Plan selection → Domain Accelerator → OAuth │
+└───────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌───────────────────────────────────────────────────────────────┐
+│ L1: WORKSPACE (Frontend)                                      │
+│ Today View, Accounts, Tasks, Health Cards — organic views     │
+│ NO entity_type, NO field names, NO schema knowledge           │
+└───────────────────────────────────────────────────────────────┘
+                                │ HTTPS/JSON
+                                ▼
+┌───────────────────────────────────────────────────────────────┐
+│ L1: WORKFLOW (Backend BFF)                                    │
+│ Schema → Organic transformation                               │
+└───────────────────────────────────────────────────────────────┘
+                                │
+        ┌───────────────────────┼───────────────────────┐
+        ▼                       ▼                       ▼
+┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
+│ L2: INTELLIGENCE │  │ SYNC & PIPELINE  │  │ SPINE            │
+│ Twin, predictions│  │ Paywall-gated    │  │ SSOT — schema    │
+│ ⌘J Overlay       │  │ Domain-scoped    │  │ Backend IP       │
+└──────────────────┘  └──────────────────┘  └──────────────────┘
+```
+
+## The user views
+
+| Surface | Purpose |
+| --- | --- |
+| Onboarding Flow | ~2-minute guided path that seeds workspace goals and authorizes tools, creating instant tenant context. |
+| Domain Workbenches | Dense, configuration-driven surfaces for Customer Success, Sales, RevOps, and BizOps — role-scoped metrics, entity timelines, and health rings. |
+| Command Palette (⌘K) | Quick-action bar for live Spine entity search, navigation, and action creation. |
+| L2 Cognitive Drawer (⌘J) | Floating panel housing the **Think** reasoning tool, the **Triage Inbox** for Flow C human review, and real-time **Signals / Approvals (HITL)**. |
+| Playbook Boundary | Approved actions are handed off as a client-side executable **Playbook (JSON)** so secrets stay local. |
+
+## The systems engine
+
+| Component | Role |
+| --- | --- |
+| Ingestion Ingress (Connector / Loader) | Secure webhook receivers and scheduled API pullers that enqueue raw events. Never reasons. |
+| 8-Stage Pipeline (Normalizer) | Queue consumer that classifies, refines, and neutralizes raw data into canonical resource schemas. |
+| Edge Memory Plane (D1 + KV) | Indexed SQLite domain partitions (`decide_data`, `build_data`, `grow_data`, `run_data`, `cross_data`) plus hot entity KV caches. |
+| Spine (Cloudflare D1) | Authoritative tenant-isolated SSOT. All writes go through the pipeline. |
+| Zero-Trust Service Bindings | Downstream workers are not exposed to the public internet — public traffic enters through the Gateway only. |
+
+## Core services
+
+| Service | Layer | Purpose | Frontend-accessible |
+| --- | --- | --- | --- |
+| `services/gateway` | Ingress | JWT, routing, response filtering | All traffic |
+| `services/workflow` | L1 BFF | Schema → organic transformation | `/workspace/*` |
+| `services/intelligence` | L2 | Twin, predictions, insights | `/twin/*` |
+| `services/connector` | Backend | Paywall-gated sync | Internal only |
+| `services/pipeline` | Backend | 8-stage normalization | Internal only |
+| `services/knowledge` | Backend | Flow B (docs, context) | Via L1 only |
+| `services/admin` | Internal | Tenant and plan management | Internal only |
+
+## Frontend / backend separation
+
+Frontend and backend are **disconnected worlds**. The schema is backend IP.
+
+| Backend knows | Frontend knows |
+| --- | --- |
+| `entity_type` (`account`, `risk`, `task`) | Display names ("Account", "Risk") |
+| Field names (`health_score`, `arr`) | Formatted values ("85%", "$2.4M") |
+| Schema structure | Organic views only |
+| Sync configuration | Data freshness indicators |
+
+The Workflow BFF performs the schema → organic transformation. The frontend never sees `entity_type`, raw field names, or sync state.
+
+## Infrastructure
+
+- **Frontend:** Cloudflare Pages.
+- **Edge / workers:** Cloudflare Workers, Queues, KV, D1, R2, Vectorize, AI Search, Durable Objects.
+- **System of record:** Cloudflare D1 (the migration off Supabase is tracked in code).
+- **Workspace tooling:** pnpm workspaces + Turborepo.

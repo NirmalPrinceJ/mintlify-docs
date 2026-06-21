@@ -1,0 +1,44 @@
+---
+title: "Workspace API"
+description: "L1 organic projections — accounts, tasks, connectors, and freshness."
+---
+
+The Workspace API serves the L1 user surfaces. Responses are **organic** — the BFF translates schema (`entity_type`, raw fields) into display values ("85%", "$2.4M") before the response leaves the edge.
+
+## Endpoints
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/api/v1/workspace/entities` | List entities by type |
+| GET | `/api/v1/workspace/connectors` | List active connectors |
+
+## List entities
+
+```http
+GET /api/v1/workspace/entities?type=account&limit=50
+Authorization: Bearer <jwt>
+x-tenant-id: <tenant_uuid>
+x-user-id: <user_uuid>
+```
+
+The `type` parameter accepts canonical entity types (resolved through `resolveEntityTypeAlias()` server-side). The response is a paginated list of organic entity views — display names, formatted metrics, trends, and freshness indicators.
+
+## List connectors
+
+```http
+GET /api/v1/workspace/connectors
+Authorization: Bearer <jwt>
+x-tenant-id: <tenant_uuid>
+x-user-id: <user_uuid>
+```
+
+Returns each registered connector with its provider, flow tag (A / B / C), and freshness status. Use this for the Connectors panel in Settings.
+
+## What the workspace does **not** expose
+
+- Raw `entity_type` values.
+- Backend field names (`health_score`, `arr`, `renewal_date`).
+- Sync state — only freshness ("Updated 2 minutes ago").
+- Schema structure.
+
+For schema-aware access, use the [Pipeline](/api/pipeline) endpoints — they are internal and not intended for frontend code.

@@ -1,0 +1,43 @@
+---
+title: "Intelligence & governance"
+description: "Signals, Think routes, and the governance policies that gate every write."
+---
+
+The intelligence routes power the L2 Cognitive Drawer (⌘J), the Triage Inbox, and the Approval Center.
+
+## Signals
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/api/v1/intelligence/signals` | List active signals across the Spine |
+
+```http
+GET /api/v1/intelligence/signals?domain=grow_data&limit=50
+Authorization: Bearer <jwt>
+x-tenant-id: <tenant_uuid>
+```
+
+Signals are emitted whenever an entity changes meaningfully — a renewal date moves, a deal stage slips, a ticket spike crosses threshold. Each signal carries the entities involved and a severity score (`signal-analyzer.ts`).
+
+## Think routes
+
+| Method | Path | Description |
+| --- | --- | --- |
+| POST | `/api/v1/cognitive/think/analyze` | Run manual analysis on a scope or entity |
+
+The Think routes under `services/think/src/cognitive-routes/` include:
+
+- **Decision memory** — what was decided, by whom, on what evidence.
+- **Drift detection** — when the world has shifted enough to invalidate a prior conclusion.
+- **Simulation** — counterfactual playthroughs of proposed actions.
+- **Trust score** — how much weight to give a given signal or source.
+
+## Governance
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/api/v1/cognitive/govern/policies` | List governance policies |
+
+Policies describe which entity types and which action shapes require which approval tiers. The HARD GATE on the Act service consults these policies and rejects any proposal lacking an `x-approval-token` that satisfies the policy.
+
+For the full governance model, see [Governance](/concepts/governance).
