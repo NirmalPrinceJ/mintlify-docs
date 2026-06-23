@@ -1,0 +1,83 @@
+---
+title: "The Twin"
+description: "Conversational reasoning grounded in the Spine. Twin proposes — it never executes."
+---
+
+The **Twin** is IntegrateWise's reasoning layer. It is a Cloudflare-native agent runtime that reads the full Spine, holds organizational and personal memory, and proposes actions. It does not execute them.
+
+## What the Twin does
+
+- **Reads grounded context** — Entity 360, relevant memory, recent signals, and the active domain partition
+- **Reasons** — generates chains of thought, hypothesis traces, and structured plans
+- **Proposes** — emits structured proposals (actions + mutations + context + success criteria) into the Approval Center
+- **Learns** — every approved or rejected proposal feeds back into memory, sharpening future reasoning
+
+The Twin never mutates the Spine. It never calls external APIs on your behalf. It writes proposals, and proposals go through governance.
+
+## How the Twin gets context
+
+The **Continuity Bridge** (S9 in the backend) assembles the Twin's context package for every session:
+
+1. **Active domain entities (L1)** — the accounts, deals, or tickets currently in focus
+2. **L2 signals and insights** — anomalies and opportunities the engine has surfaced
+3. **L4 memory** — relevant documents, past sessions, and promoted org knowledge
+4. **Recent activity** — what changed on the Spine in the last hours or days
+
+This package is what the Twin sees when you open a chat. It is regenerated for each session and scoped to the active tenant and domain.
+
+## Model routing
+
+Twin sessions route through the intelligence worker's `/v1/chat/completions` endpoint to **OpenRouter (gpt-5-mini)** by default. The runtime guards against silent fallback to smaller models — if the configured model is unreachable, the session fails loudly rather than degrading quietly.
+
+Model choice is per-tenant and configurable. The Twin runtime itself is vendor-neutral; only the endpoint and credentials change.
+
+## The proposal contract
+
+Every Twin proposal is a structured object, not a free-form chat message. A proposal includes:
+
+- **Intent** — what outcome the user asked for, in their own words
+- **Actions** — the concrete steps the Twin recommends
+- **Mutations** — the Spine writes or external tool calls those steps require
+- **Context** — the entities, signals, and memory the Twin used as evidence
+- **Success criteria** — how the system will know it worked
+
+Proposals land in the Approval Center with status `PENDING_REVIEW`. The user sees the full evidence trail before approving.
+
+## The handoff boundary
+
+When a proposal is approved, IntegrateWise generates a **Playbook** — a vendor-neutral, client-side executable JSON contract. The Playbook runs in the customer's own environment:
+
+- **Export as JSON** — raw playbook for any executor
+- **Export to Hermes** — IntegrateWise's reference runtime
+- **Export to OpenClaw** — open-source executor
+- **Export as MCP** — Model Context Protocol package
+
+This boundary is intentional: credentials for the customer's tools never leave the customer's environment. IntegrateWise prepares execution; the customer dispatches it.
+
+## What the Twin does not do
+
+- It does not auto-dispatch — every action waits for explicit human approval
+- It does not write to the Spine directly — all writes proxy through governance
+- It does not call your CRM, Slack, or Stripe — those calls happen client-side via the Playbook
+- It does not see other tenants' data — runtime context is strictly tenant-scoped
+
+## Backend
+
+The Twin runs on `services/iw-agent-runtime` — a Cloudflare-native agent with SQLite-backed Durable Objects for session state. There is no OpenWebUI, no CouchDB, no external orchestrator. Memory consolidation runs hourly via cron, autonomously triaging and ageing the memory plane.
+
+## Related concepts
+
+<CardGroup cols={2}>
+  <Card title="The Spine" icon="database" href="/concepts/spine">
+    The data model the Twin reads.
+  </Card>
+  <Card title="Data flows" icon="arrows-to-circle" href="/concepts/data-flows">
+    Flow C — how AI interactions feed back into the Spine.
+  </Card>
+  <Card title="Governance" icon="shield-check" href="/concepts/governance">
+    Approval Center, Triage Inbox, and the handoff layer.
+  </Card>
+  <Card title="Architecture" icon="diagram-project" href="/concepts/architecture">
+    Where the Twin sits in the L0 → L1 → L2 model.
+  </Card>
+</CardGroup>

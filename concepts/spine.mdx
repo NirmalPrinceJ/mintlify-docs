@@ -1,0 +1,90 @@
+---
+title: "The Spine"
+description: "The unified, governed data model that turns every connected tool into one source of truth."
+---
+
+The **Spine** is IntegrateWise's central data model. It is the system of context — the layer where raw data from every connected tool is normalized, deduplicated, resolved into stable entities, and made available to the rest of the platform.
+
+If a fact lives in IntegrateWise, it lives on the Spine. Nothing else writes truth.
+
+## What the Spine stores
+
+Everything the workspace and the Twin reason about is an entity on the Spine. Entities include:
+
+- **Accounts and contacts** — resolved across CRM, support, billing, and messaging
+- **Deals and opportunities** — with lifecycle, owner, and pipeline stage
+- **Tickets** — issues, escalations, and conversations from support systems
+- **Subscriptions and billing** — plans, MRR, renewals, invoices
+- **Strategic objectives and insights** — derived facts produced by the engine
+- **Architecture state and relationship graphs** — how entities connect
+
+Each entity has a canonical schema (see the `services/normalizer/src/schemas/*` shapes — `account_master`, `client`, `deal`, `ticket`, `event`, `insight`, `subscription`, and more) and is governed by tenant-scoped row-level isolation.
+
+## How data lands on the Spine
+
+```
+Connector → Webhook ingress → Queue → Normalizer (8 stages) → Spine
+```
+
+1. **Connector** — secure webhook receivers and scheduled pullers ingest raw data.
+2. **Queue** — raw events are enqueued. No transformation runs on the ingress path.
+3. **Normalizer pipeline** — an 8-stage queue consumer that classifies, filters, validates against canonical schemas, resolves identities, and applies idempotency.
+4. **Spine write** — the normalized record lands in the Fortress DB (Supabase SSOT) and is mirrored to the edge memory plane (D1 + KV) for fast reads.
+
+Raw, un-normalized data never escapes the ingress. The L1 workspace and the Twin only ever see Spine-shaped entities.
+
+## Edge memory plane
+
+For low-latency reads, the Spine is mirrored across Cloudflare's edge:
+
+- **D1** — indexed SQLite domain tables: `decide_data`, `build_data`, `grow_data`, `run_data`, `cross_data`
+- **KV** — hot entity caches for sub-millisecond entity 360 reads
+- **R2** — large blobs, documents, and binary attachments
+- **Vectorize** — semantic embeddings used by memory search and the Twin
+
+The Twin's morning brief reads from this edge plane in milliseconds. The Fortress DB remains the source of truth; the edge is an eventually-consistent read replica.
+
+## Write path: the Fortress rule
+
+The Spine has one rule that everything else depends on:
+
+<Warning>
+  **Downstream workers must not write directly to the Fortress DB.** Every mutation proxies through the pipeline's `/api/v1/db-proxy` endpoint. This is what makes the Spine governed.
+</Warning>
+
+This invariant means:
+
+- Every write is validated against a canonical schema
+- Every write is tenant-scoped and audited
+- Direct privilege escalation from a downstream worker is structurally impossible
+- The Twin cannot bypass governance — its proposals land in the Approval Center, not the Spine
+
+## Entity 360
+
+Once an entity is on the Spine, IntegrateWise assembles its **Entity 360** view: every related record from every connected tool, cross-referenced, deduplicated, and surfaced as a single timeline. The Twin uses Entity 360 as its primary grounding context.
+
+## Schema-aware, schema-hidden
+
+The Spine knows its schema. The user does not.
+
+- **Backend:** strict schemas, canonical resource types, tenant-isolated partitions
+- **Frontend (L1):** organic views only — Today, Accounts, Tasks, Health — with no exposed `entity_type`, no raw field names, no schema knowledge
+
+This separation is deliberate. The user works with outcomes; the system works with structure.
+
+## Related concepts
+
+<CardGroup cols={2}>
+  <Card title="Data flows" icon="arrows-to-circle" href="/concepts/data-flows">
+    How A (structured), B (unstructured), and C (AI sessions) feed the Spine.
+  </Card>
+  <Card title="The Twin" icon="brain" href="/concepts/twin">
+    How the Twin reads the Spine and proposes mutations.
+  </Card>
+  <Card title="Governance" icon="shield-check" href="/concepts/governance">
+    Approval Center and the write-only-through-proposals rule.
+  </Card>
+  <Card title="Architecture" icon="diagram-project" href="/concepts/architecture">
+    Where the Spine sits in the L0 → L1 → L2 model.
+  </Card>
+</CardGroup>

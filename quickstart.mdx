@@ -1,47 +1,83 @@
 ---
 title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+description: "Go from signup to a working IntegrateWise workspace in about two minutes."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
-
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
+This quickstart walks you through creating a tenant, picking a domain, and connecting your first tool. By the end, your workspace is pre-filled with live data from your own systems and the Twin has the context it needs to start surfacing signals.
 
 ## Prerequisites
 
-Before you begin, you must have:
+Before you begin, you need:
 
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
+- A work email or a Google/GitHub account
+- Admin access to at least one tool you want to connect (for example, a CRM, support desk, or billing system)
+- A modern browser (Chrome, Edge, Firefox, or Safari)
 
 ## Get started
 
 <Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
+  <Step title="Sign up">
+    Go to [app.integratewise.ai](https://app.integratewise.ai) and sign in with Google or GitHub. Email/password sign-in is gated and off by default — OAuth is the live entry path.
 
-    ```bash
-    npm install your-package
-    ```
+    On first sign-in, IntegrateWise atomically creates your tenant, your user, and your Customer Zero workspace.
   </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
+  <Step title="Pick your domain">
+    Choose the work domain that matches your role. Your L1 Workbench, modules, and data partitions all snap to this choice.
 
-    ```bash
-    your-cli init
-    ```
+    - **Customer Success** — accounts, health, renewals, escalations
+    - **Sales** — pipeline, opportunities, forecast
+    - **RevOps** — funnel, attribution, lifecycle
+    - **BizOps** — cross-functional metrics and projects
+    - **Personal** — always available alongside your work domain
+
+    You can only have one work domain active at a time. Personal is always on.
   </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
+  <Step title="Connect your first tool">
+    From the onboarding flow, authorize one connector — CRM, support desk, billing, messaging, or documents. OAuth runs through the Gateway and writes credentials to the encrypted vault.
 
-    ```bash
-    your-cli start
-    ```
+    As soon as the connector lands, the **8-stage pipeline** classifies, normalizes, and writes the data into the Spine. Your workspace stops being empty.
+  </Step>
+  <Step title="See it work">
+    Open your domain workbench. You should now see:
+
+    - Entity 360 cards (accounts, contacts, deals, tickets) sourced from the Spine
+    - The L2 Cognitive Overlay (`⌘J`) with early signals and insights
+    - The Twin (`⌘K` for commands, dedicated workbench for chat) with grounded context from your data
+
+    Ask the Twin a question about a specific account or opportunity — it reads across every connected system and shows the evidence behind its answer.
+  </Step>
+  <Step title="Approve your first action">
+    The Twin never acts alone. When it proposes an action — a CRM update, a follow-up task, a workflow — the proposal lands in the **Approval Center** with full context and evidence.
+
+    Review, approve, and choose how to dispatch: export as a JSON playbook, hand off to Hermes, OpenClaw, or MCP. Execution happens in your own environment; the Spine records the outcome and learns from it.
   </Step>
 </Steps>
 
-<Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
+## What just happened
 
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
+Behind the scenes, your one click of "connect" triggered the full IntegrateWise loop:
+
+`Connect tools → Data flows in → Pipeline normalizes → Spine stores truth → Intelligence surfaces what matters → You review and approve → Action executes → System learns`
+
+Every cycle makes the next one smarter. The AI learns from your decisions. The Spine grows with your business.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture" icon="diagram-project" href="/concepts/architecture">
+    Understand the L0 → L1 → L2 layers and the Cloudflare-native backend.
+  </Card>
+  <Card title="Connect more tools" icon="plug" href="/guides/connectors">
+    Add CRM, support, finance, docs, and messaging connectors.
+  </Card>
+  <Card title="The Spine" icon="database" href="/concepts/spine">
+    See how entities are unified across systems.
+  </Card>
+  <Card title="Governance" icon="shield-check" href="/concepts/governance">
+    Approval Center, handoff layer, and audit trail.
+  </Card>
+</CardGroup>
+
+<Tip>
+  Need help? Reach out to the team at [hi@integratewise.ai](mailto:hi@integratewise.ai).
 </Tip>

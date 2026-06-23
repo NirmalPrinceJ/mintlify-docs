@@ -1,0 +1,94 @@
+---
+title: "Data flows"
+description: "Flow A (structured truth), Flow B (unstructured context), and Flow C (AI interactions) — the three pipes that feed the Spine."
+---
+
+IntegrateWise organizes incoming data into three named flows. Each has a different shape, a different write path, and a different governance posture — but all three converge on the same Spine.
+
+## Flow A — Structured truth
+
+**Source:** CRM, billing, support, finance, and project systems.
+
+**Shape:** Structured rows with well-defined schemas — accounts, contacts, deals, tickets, invoices, subscriptions, tasks.
+
+**Write path:**
+
+```
+Connector → Webhook / scheduled pull → Queue → Normalizer pipeline → Spine
+```
+
+Flow A is the backbone. It produces the canonical entities (accounts, deals, tickets, subscriptions) that everything else attaches to. Normalization is strict: every record validates against a schema in `services/normalizer/src/schemas/*` before it touches the Spine.
+
+**Governance:** Fully automated. Schemas enforce shape; identity resolution dedupes across systems; the db-proxy is the only write path.
+
+## Flow B — Unstructured context
+
+**Source:** Documents, emails, notes, files, transcripts, exports.
+
+**Shape:** Free-form text and binary content. No row schema.
+
+**Write path:**
+
+```
+Upload / connector → R2 (blob) + Vectorize (embeddings) → Knowledge layer → Spine references
+```
+
+Flow B turns unstructured material into searchable context. Documents are stored in R2, embedded into Vectorize, and indexed by the knowledge layer. The resulting references are attached to Spine entities (a contract attached to an account, a transcript attached to a ticket).
+
+**Governance:** Memory writes land in **staging** by default. Promotion to published org memory goes through the governance queue — direct writes to `org_memory` are blocked. See [Governance](/concepts/governance).
+
+## Flow C — AI interactions
+
+**Source:** Twin sessions, agent runs, MCP tool calls, external AI assistants (ChatGPT, Claude, Perplexity, Cursor, VS Code) reading the Spine.
+
+**Shape:** Sessions, messages, tool calls, proposals, and outcomes.
+
+**Write path:**
+
+```
+AI session → Reads grounded context from Spine
+            → Proposes actions / mutations / memory writes
+            → Lands in Approval Center (Triage Inbox)
+            → Human review → Approved / Rejected
+            → If approved: handed off via Playbook / MCP / Hermes / OpenClaw
+```
+
+Flow C is the AI's own write path — and it is the most heavily governed. AI sessions read across every Spine partition, but they never mutate the Spine directly. Every proposed write becomes a proposal in the **Approval Center** with full evidence and reasoning attached.
+
+**Governance:** Mandatory human-in-the-loop. The Twin can think, plan, and propose. It cannot execute. The Triage Inbox in the L2 drawer is where humans review Flow C output.
+
+## How the flows compose
+
+A real interaction usually touches all three:
+
+1. **Flow A** brings in a deal from your CRM and a billing record from Stripe.
+2. **Flow B** attaches the signed contract (uploaded as a doc) to that deal.
+3. **Flow C** runs when you ask the Twin "what's the renewal risk on this account?" — it reads the Spine entity (A), the contract embeddings (B), and proposes a follow-up task. That proposal sits in the Approval Center until you approve it.
+
+The Spine is the convergence point. Every flow ends there. Nothing reaches the user that did not pass through one of these three pipes.
+
+## Read paths
+
+While writes are tightly governed, reads are designed to be fast and broad:
+
+- **L1 workbenches** read entity-shaped projections from the edge memory plane (D1 + KV)
+- **L2 cognitive overlay** reads signals and insights produced by the engine
+- **The Twin** reads assembled context (Entity 360 + relevant memory + recent signals) through the Continuity Bridge
+- **External AI assistants** read through the MCP connector with scoped, tenant-isolated tools
+
+## Related concepts
+
+<CardGroup cols={2}>
+  <Card title="The Spine" icon="database" href="/concepts/spine">
+    The unified data model where every flow converges.
+  </Card>
+  <Card title="The Twin" icon="brain" href="/concepts/twin">
+    Flow C in detail — how the Twin reasons and proposes.
+  </Card>
+  <Card title="Governance" icon="shield-check" href="/concepts/governance">
+    Approval Center, memory promotion, and handoff.
+  </Card>
+  <Card title="Architecture" icon="diagram-project" href="/concepts/architecture">
+    Where each flow sits in the L0 → L1 → L2 model.
+  </Card>
+</CardGroup>
