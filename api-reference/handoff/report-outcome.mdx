@@ -1,0 +1,123 @@
+---
+title: "Report handoff outcome"
+description: "Report the result of executing a handoff package back to IntegrateWise."
+---
+
+External customer agents call this endpoint after running a handoff package to report whether execution succeeded, failed, or completed partially. The reported outcome drives the package's state transition, persists the execution evidence, and — on success — emits an `execution_memory` proposal into the organization's return loop.
+
+Use this endpoint if you build your own executor (rather than relying on a built-in adapter) and need to close the loop on dispatched handoff packages.
+
+## Endpoint
+
+```http
+POST /api/v1/handoff/outcome
+```
+
+### Authentication
+
+Authenticate as the tenant that owns the handoff package. The package's `tenant_id` must match the calling tenant; mismatched requests return `404`.
+
+### Headers
+
+| Header | Value |
+| --- | --- |
+| `Content-Type` | `application/json` |
+
+## Request body
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `handoff_id` | string (UUID) | Yes | The `package_id` of the handoff that was executed. |
+| `status` | enum | Yes | One of `success`, `failure`, or `partial`. |
+| `evidence` | array | Yes | Evidence items describing what happened during execution. Each item has a `kind` (string) and may include a `url` (string) and/or `details` (object). |
+| `source` | string | Yes | Identifier of the executor reporting the outcome (for example, `customer-agent:acme-prod`). |
+| `idempotency_key` | string | Yes | Stable key for this outcome submission. Reusing a key is a no-op (see [Idempotency](#idempotency)). |
+| `occurred_at` | string (ISO 8601 datetime) | Yes | When the outcome actually occurred on the executor side. |
+
+### Example request
+
+```bash
+curl -X POST https://api.integratewise.com/api/v1/handoff/outcome \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $INTEGRATEWISE_TOKEN" \
+  -d '{
+    "handoff_id": "8f2b1c4d-9e3a-4f8b-a1c2-7d6e5f4a3b2c",
+    "status": "success",
+    "evidence": [
+      {
+        "kind": "artifact",
+        "url": "https://files.example.com/run-42/report.pdf"
+      },
+      {
+        "kind": "metric",
+        "details": { "rows_processed": 1284, "duration_ms": 9421 }
+      }
+    ],
+    "source": "customer-agent:acme-prod",
+    "idempotency_key": "run-42-outcome-v1",
+    "occurred_at": "2026-06-23T14:32:11.000Z"
+  }'
+```
+
+## Response
+
+### 200 OK
+
+The outcome was accepted (or already processed for this idempotency key). The package state reflects the transition that occurred.
+
+```json
+{
+  "package_state": "COMPLETED",
+  "memory_proposal_id": "mp-oe-1719155531-7q3a8b"
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `package_state` | string | The new state of the handoff package. `success` and `partial` map to `COMPLETED`; `failure` maps to `FAILED`. |
+| `memory_proposal_id` | string \| null | ID of the `execution_memory` proposal emitted on success. May be `null` if proposal emission was skipped or failed (non-blocking). |
+
+### Status mapping
+
+| `status` | Resulting `package_state` | Notes |
+| --- | --- | --- |
+| `success` | `COMPLETED` | Marked verified. Emits an `execution_memory` proposal into the return loop. |
+| `partial` | `COMPLETED` | Completed but not verified. |
+| `failure` | `FAILED` | No memory proposal is emitted. |
+
+### Error responses
+
+| Status | When |
+| --- | --- |
+| `400` | Request body is missing or not valid JSON. |
+| `404` | The handoff package does not exist, or it belongs to a different tenant. |
+| `409` | The current package state does not permit the requested transition, or the idempotency key has already been used for a different submission. |
+| `422` | The request body fails schema validation (missing field, invalid UUID, unknown `status` value, malformed `occurred_at`, etc.). |
+
+## Idempotency
+
+Outcome submissions are idempotent on `idempotency_key`:
+
+- The first request with a given key drives the state transition, persists the outcome event, and emits the memory proposal.
+- Subsequent requests with the **same** key are no-ops — no duplicate transitions, no duplicate proposals.
+- Re-submitting the same key with a *different* payload returns `409`.
+
+Generate a key that is stable for a single logical execution attempt (for example, `<run-id>-outcome-v1`). Safe to retry on network errors.
+
+## What happens after ingestion
+
+When IntegrateWise accepts an outcome, it:
+
+1. **Transitions package state.** `AWAITING_OUTCOME` → `COMPLETED` (success/partial) or `FAILED` (failure).
+2. **Persists the outcome event.** The full `evidence` array, `source`, and timestamps are stored against the package for audit.
+3. **Emits an `execution_memory` proposal** (success only). The proposal flows into the organization's memory governance queue as a staged item; it is not auto-promoted.
+4. **Cancels the pending timeout** (see below) so the package does not auto-fail.
+
+## Timeout semantics
+
+When a package transitions into `AWAITING_OUTCOME`, IntegrateWise arms a per-package timeout guard (`HandoffTimeoutDO`). The default timeout is **1 hour**, configurable per tenant via `tenant_config.awaiting_outcome_timeout_seconds`.
+
+- If a valid outcome arrives **before** the alarm fires, the timeout is cancelled.
+- If no outcome arrives in time, the package is **auto-failed with reason `outcome_timeout`** for external tenants. Customer Zero tenants are escalated per policy instead of being hard-failed.
+
+Customers building their own executors should treat the configured timeout as a hard deadline. If your run is long-running, report a `partial` outcome with evidence describing progress, or coordinate a longer timeout with your IntegrateWise administrator.
