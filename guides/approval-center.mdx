@@ -1,0 +1,143 @@
+---
+title: "Approval Center"
+description: "Review, approve, and dispatch handoff packages from a single workbench."
+---
+
+The Approval Center is the workbench where you review proposed actions, approve or reject them, and dispatch the approved work to a downstream system. It is one of the primary day-to-day screens for external tenants, alongside the L1–L4 memory surfaces.
+
+Every action that an agent wants to take on your behalf is wrapped in a **handoff package** — a signed, governed bundle containing the proposed action, the evidence behind it, success criteria, and an audit trail. Nothing leaves the platform until you approve it from the Approval Center.
+
+## When to use it
+
+Open the Approval Center when you need to:
+
+- Review the queue of pending proposals waiting on a human decision.
+- Approve a proposal and choose how it should be delivered to your downstream system.
+- Reject a proposal with a reason so the package is cancelled and recorded.
+- Check the status of work that has already been dispatched.
+- Audit the full state-transition history of any package for compliance.
+
+## The tab bar
+
+The shell is organized into five tabs, one per package state group:
+
+| Tab                  | State filter                | What you see                                                                                  |
+| -------------------- | --------------------------- | --------------------------------------------------------------------------------------------- |
+| **Pending**          | `PROPOSED`                  | Packages awaiting your approval. This is the default tab and the main queue.                  |
+| **Approved**         | `APPROVED`                  | Packages you have approved but not yet dispatched.                                            |
+| **Awaiting Outcome** | `AWAITING_OUTCOME`          | Packages that have been dispatched and are waiting on a confirmation event from the receiver. |
+| **Completed**        | `COMPLETED`                 | Packages whose success criteria have been met.                                                |
+| **Failed / Cancelled** | `FAILED`, `CANCELLED`     | Terminal packages that did not succeed, plus anything you rejected.                           |
+
+Each row in a tab shows the action kind, the target system, the current state, and the creation timestamp. Use **View** to open the proposal detail, or **Audit Trail** to jump straight to the state log.
+
+## Reviewing a proposal
+
+Click **View** on any row to open the proposal detail view. The detail page surfaces everything you need to make a decision:
+
+- **Action** — the `kind` (for example, `create_task`) and `target` (for example, `linear`) the agent wants to perform.
+- **Evidence** — the facts the agent used as the basis for the proposal, each with an optional confidence score. Low-confidence evidence is a good signal to slow down and inspect.
+- **Success criteria** — the checks that must pass for the package to transition to `COMPLETED` once the outcome is reported.
+- **Governance stamp** — present once the package is approved. See [Governance stamp](#governance-stamp) below.
+
+From the detail view you can **Approve** or **Reject** any package whose state is `PROPOSED`.
+
+## Approving and dispatching
+
+Approval is a two-step flow: first you approve the proposal, then you pick how it should be delivered.
+
+<Steps>
+  <Step title="Approve">
+    Click **Approve**. The package transitions from `PROPOSED` to `APPROVED`, a governance stamp is attached, and the adapter selection panel opens.
+  </Step>
+  <Step title="Choose a dispatch mode">
+    Pick one of the two adapter modes:
+
+    - **Download JSON file** — the platform serializes the handoff package to canonical JSON and triggers a browser download. Use this when you want to inspect the package or hand it off manually.
+    - **POST to endpoint** — the platform sends the package as a `POST` request to a URL you supply. Use this when you have a webhook receiver wired up.
+  </Step>
+  <Step title="Dispatch">
+    Click **Dispatch**. The package transitions to `EXECUTING`, and (for endpoint mode) the platform performs the HTTP call.
+  </Step>
+</Steps>
+
+### Idempotency for endpoint mode
+
+When you dispatch in **endpoint** mode, the platform sends an `X-Idempotency-Key` header with every request. The receiver can use this key to deduplicate retries safely — replaying the same package will not create duplicate side effects.
+
+A typical request looks like this:
+
+```http
+POST /your-webhook HTTP/1.1
+Host: example.com
+Content-Type: application/json
+X-Idempotency-Key: idem_8b1c2f3a_18f7c2d3a40_4e9b
+
+{
+  "package_id": "8b1c2f3a-…",
+  "proposal_id": "…",
+  "action": { "kind": "create_task", "target": "linear", "params": { … } },
+  "evidence": [ … ],
+  "success_criteria": [ … ],
+  "governance_stamp": { … },
+  "idempotency_key": "idem_8b1c2f3a_18f7c2d3a40_4e9b",
+  "state": "APPROVED"
+}
+```
+
+Your endpoint should respond with `2xx` on success. The dispatched payload is the same in both modes, so a file downloaded today can be replayed against your endpoint tomorrow with no loss of fidelity.
+
+## Rejecting a proposal
+
+Use **Reject** when a proposal is wrong, unsafe, or no longer needed.
+
+<Steps>
+  <Step title="Open the reject modal">
+    From the proposal detail view, click **Reject**.
+  </Step>
+  <Step title="Provide a reason">
+    Enter a free-text reason. The reason is required — you cannot confirm the rejection without one.
+  </Step>
+  <Step title="Confirm">
+    Click **Confirm Reject**. The package transitions from `PROPOSED` to `CANCELLED`, and your reason is recorded on the audit trail.
+  </Step>
+</Steps>
+
+`CANCELLED` is terminal — a cancelled package cannot be re-approved. If you change your mind, the agent must produce a new proposal.
+
+## Governance stamp
+
+Every approved package carries a governance stamp that proves a human approved the action under a known policy. The stamp is byte-for-byte identical in the downloaded JSON, the dispatched payload, and the UI, so any downstream system can verify the chain of custody.
+
+| Field         | What it is                                                          |
+| ------------- | ------------------------------------------------------------------- |
+| `decision_id` | Unique identifier for the approval decision.                        |
+| `policy_id`   | The policy under which the approval was made.                       |
+| `approver`    | The identity that clicked **Approve**.                              |
+| `decided_at`  | ISO-8601 timestamp of the approval.                                 |
+| `audit_id`    | Identifier you can use to cross-reference the audit log.            |
+
+## Audit trail
+
+Click **Audit Trail** on any row, or use the link from the proposal detail view, to see every state transition for a package. Each entry records the `from` and `to` states, the actor who triggered the transition, the reason (for rejections and cancellations), and the timestamp.
+
+The allowed transitions are:
+
+```text
+PROPOSED          → APPROVED, CANCELLED
+APPROVED          → EXECUTING, CANCELLED
+EXECUTING         → AWAITING_OUTCOME, FAILED, CANCELLED
+AWAITING_OUTCOME  → COMPLETED, FAILED, CANCELLED
+COMPLETED         → CANCELLED   (manual cancel for audit correction)
+FAILED            → CANCELLED
+CANCELLED         → (terminal)
+```
+
+Any attempt to make an invalid transition is rejected by the platform — the audit trail is the source of truth for what actually happened to a package.
+
+## Tips
+
+- Treat **Pending** as your inbox. A long queue usually means proposals need clearer success criteria upstream.
+- Use **Download JSON file** the first time you wire up a new downstream system — you can inspect the payload shape before pointing a live endpoint at it.
+- Always include a specific reason when rejecting. The audit trail is the record other operators (and auditors) will read months later.
+- If a package is stuck in **Awaiting Outcome**, check that your downstream system is reporting outcomes back to the platform.

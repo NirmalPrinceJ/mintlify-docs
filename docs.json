@@ -16,6 +16,12 @@
           "index",
           "quickstart"
         ]
+      },
+      {
+        "group": "Guides",
+        "pages": [
+          "guides/approval-center"
+        ]
       }
     ],
     "global": {
