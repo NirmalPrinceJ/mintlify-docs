@@ -1,0 +1,149 @@
+---
+title: "Agent tools"
+description: "Register agents and route messages between them through the Spine"
+---
+
+The `agent.*` tools turn the MCP server into a routing fabric for agent-to-agent communication. Agents never call each other directly — every message flows through the Spine, which combines a durable D1 log with a short-lived KV cache for fast pickup.
+
+Typical topology:
+
+```
+Notion Agent → Spine (log + cache) → Cloudflare Agent → Spine → Hostinger Agent
+```
+
+All three tools are tenant-scoped: agents registered under one tenant cannot see or message agents in another tenant.
+
+## `agent.register`
+
+Register (or update) an agent in the routing table so other agents can find and message it.
+
+**When to use it.** On agent startup, and whenever an agent's capabilities, endpoint, or status change. The call is idempotent — re-registering with the same `agent_id` updates the existing row.
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `agent_id` | string | yes | Stable identifier for the agent. |
+| `agent_name` | string | yes | Human-readable name. |
+| `capabilities` | string[] | yes | Capability tags used by capability routing (e.g. `["calendar.read", "calendar.write"]`). |
+| `endpoint` | string | no | Optional callback URL for clients that pull messages over HTTP. |
+| `runtime` | string | yes | One of `cloudflare`, `hostinger`, `external`, or `local`. |
+
+### Example
+
+```json
+{
+  "name": "agent.register",
+  "arguments": {
+    "agent_id": "calendar-bot-prod",
+    "agent_name": "Calendar Bot",
+    "capabilities": ["calendar.read", "calendar.write"],
+    "runtime": "cloudflare"
+  }
+}
+```
+
+### Capability routing
+
+To find an agent that can do something, query the registry by capability — for example, look up any active agent with `calendar.write` for the current tenant and send the message to its `agent_id`. Only agents with `status: "active"` are returned.
+
+## `agent.send`
+
+Send a message from one agent to another through the Spine.
+
+**When to use it.** Whenever an agent needs to request work, broadcast an event, or respond to a previous message.
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `sender_agent_id` | string | yes | The sending agent's ID. |
+| `target_agent_id` | string | yes | The receiving agent's ID. Must be registered for the same tenant. |
+| `message_type` | string | yes | One of `request`, `response`, `event`, `heartbeat`. |
+| `payload` | object | yes | Arbitrary JSON payload. |
+| `correlation_id` | string | no | Reuse a previous correlation ID to thread responses together. A new UUID is generated if omitted. |
+
+### Behavior
+
+Before delivery, `agent.send` verifies the target:
+
+- If the target agent is not registered, it returns `error: "target_agent_not_found"`.
+- If the target agent is registered but `status` is `offline`, it returns `error: "target_agent_offline"`. Senders can choose to queue, fail, or fall back to a different agent.
+
+On success, the message is written to the durable log **and** placed in the KV cache for up to 5 minutes so receivers can pick it up quickly.
+
+### Example
+
+```json
+{
+  "name": "agent.send",
+  "arguments": {
+    "sender_agent_id": "triage-bot",
+    "target_agent_id": "calendar-bot-prod",
+    "message_type": "request",
+    "payload": {
+      "action": "schedule",
+      "title": "Discovery call",
+      "attendees": ["sam@acme.com"]
+    }
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "message_id": "msg_01H…",
+  "correlation_id": "01H…",
+  "status": "sent"
+}
+```
+
+## `agent.inbox`
+
+Read pending messages for an agent.
+
+**When to use it.** From the receiving agent's poll loop, or from a debugging surface that needs to inspect what an agent is about to process.
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `agent_id` | string | yes | The agent whose inbox to read. |
+| `status_filter` | string | no | Filter by status (`sent`, `delivered`, `processed`, `failed`). Defaults to `sent` and `delivered`. |
+| `limit` | number | no | Maximum messages to return. Defaults to `20`. |
+
+### Example
+
+```json
+{
+  "name": "agent.inbox",
+  "arguments": {
+    "agent_id": "calendar-bot-prod",
+    "limit": 10
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "count": 2,
+  "messages": [
+    {
+      "id": "msg_01H…",
+      "sender_agent_id": "triage-bot",
+      "receiver_agent_id": "calendar-bot-prod",
+      "message_type": "request",
+      "payload": { "action": "schedule", "…": "…" },
+      "correlation_id": "01H…",
+      "status": "sent",
+      "created_at": "2026-06-22T18:14:02Z"
+    }
+  ]
+}
+```
+
+Messages remain in the inbox until they are marked as `processed`. Reply to a request by calling `agent.send` with `message_type: "response"` and reusing the original `correlation_id`.

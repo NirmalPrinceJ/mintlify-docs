@@ -1,0 +1,116 @@
+---
+title: "MCP integration"
+description: "Connect Claude, Cursor, ChatGPT, Notion, and other MCP clients to IntegrateWise"
+---
+
+IntegrateWise exposes a public [Model Context Protocol](https://modelcontextprotocol.io) server that lets any MCP-compatible client read your canonical data, propose governance-gated writes, and route messages between agents.
+
+Use the MCP server when you want to:
+
+- Let an AI assistant (Claude, Cursor, ChatGPT, Notion AI, etc.) work against your IntegrateWise tenant.
+- Build an external agent that participates in agent-to-agent workflows.
+- Read canonical entities from the Spine and propose changes through the Approval Center.
+
+## Endpoints
+
+| Surface | URL |
+| --- | --- |
+| MCP server | `https://mcp.integratewise.ai` |
+| OAuth issuer | `https://auth.integratewise.ai` |
+
+The server speaks two transports — both share the same authentication and the same tool set. Pick the one your client supports.
+
+<CardGroup cols={2}>
+  <Card title="HTTP Streamable" icon="bolt">
+    `POST https://mcp.integratewise.ai/` (or `/mcp`)
+
+    Use with **Claude**, **Cursor**, **ChatGPT**, and any client that supports MCP's HTTP Streamable transport.
+  </Card>
+  <Card title="Server-Sent Events" icon="rss">
+    `GET  https://mcp.integratewise.ai/sse`
+    `POST https://mcp.integratewise.ai/sse/message`
+
+    Use with **Notion** and legacy MCP clients that require an `text/event-stream` channel.
+  </Card>
+</CardGroup>
+
+### How SSE works
+
+1. The client opens `GET /sse`. The server replies with `Content-Type: text/event-stream` and emits an `endpoint` event whose `data:` payload is a one-time message URL (`/sse/message?sessionId=…`).
+2. The client POSTs each JSON-RPC request to that URL.
+3. The matching response is delivered back as a `message` event on the same stream.
+
+You usually do not need to implement this by hand — Notion, the official MCP SDKs, and most legacy clients handle the handshake for you.
+
+## Authentication
+
+Every request must be authenticated and is automatically scoped to the caller's tenant.
+
+### OAuth 2.0 (recommended)
+
+Configure your client with the issuer `https://auth.integratewise.ai`. Dynamic client registration is supported, so most desktop clients (Claude, Cursor, ChatGPT) will complete the flow automatically the first time you add the server.
+
+Supported scopes:
+
+| Scope | Grants |
+| --- | --- |
+| `mcp:tools` | Call MCP tools |
+| `mcp:resources` | Read MCP resources |
+| `tenant:read` | Read tenant data via connector tools |
+| `tenant:write` | Propose tenant writes (governance-gated) |
+| `memory:read` | Read Memory Hub entries |
+| `memory:write` | Propose Memory Hub writes |
+
+### API key
+
+For server-to-server or scripted use, send a long-lived API key on every request:
+
+```bash
+curl -X POST https://mcp.integratewise.ai/ \
+  -H "X-MCP-Key: <your-key>" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+You can also send the key as `Authorization: Bearer <key>`. Generate keys from the IntegrateWise dashboard.
+
+## Client setup
+
+<Tabs>
+  <Tab title="Claude Desktop">
+    Add the server in **Settings → Connectors → Add custom connector**:
+
+    - **URL**: `https://mcp.integratewise.ai`
+    - Sign in when prompted. Claude completes the OAuth flow against `auth.integratewise.ai` automatically.
+  </Tab>
+  <Tab title="Cursor">
+    In `~/.cursor/mcp.json`:
+
+    ```json
+    {
+      "mcpServers": {
+        "integratewise": {
+          "url": "https://mcp.integratewise.ai"
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="ChatGPT">
+    In **Settings → Connectors → Add MCP server**, enter `https://mcp.integratewise.ai`. ChatGPT uses HTTP Streamable and OAuth.
+  </Tab>
+  <Tab title="Notion">
+    In **Settings → Connections → Add MCP server**, enter `https://mcp.integratewise.ai/sse`. Notion uses the SSE transport.
+  </Tab>
+</Tabs>
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="Connector tools" icon="plug" href="/mcp/tools/connectors">
+    Read canonical data and propose writes through `connector.list`, `connector.read`, and `connector.write`.
+  </Card>
+  <Card title="Agent tools" icon="robot" href="/mcp/tools/agents">
+    Register agents and exchange messages with `agent.register`, `agent.send`, and `agent.inbox`.
+  </Card>
+</CardGroup>

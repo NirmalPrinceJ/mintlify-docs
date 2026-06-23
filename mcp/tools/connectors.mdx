@@ -1,0 +1,132 @@
+---
+title: "Connector tools"
+description: "Discover connectors, read canonical data, and propose governance-gated writes"
+---
+
+The `connector.*` tools let MCP clients interact with the IntegrateWise Spine — the canonical store of entities synced from your connected providers (Notion, Google, Hostinger, n8n, and so on).
+
+All three tools are automatically scoped to the tenant attached to your OAuth token or API key.
+
+<Note>
+  Writes are never executed directly. `connector.write` always creates a HandoffPackage proposal that must be approved in the Approval Center before it is dispatched.
+</Note>
+
+## `connector.list`
+
+Discover which connectors are available for the current tenant, what entity types they expose, and which operations they support.
+
+**When to use it.** Call this first when an agent or assistant needs to know what data sources it can reach.
+
+### Response shape
+
+```json
+{
+  "connectors": [
+    {
+      "provider": "notion",
+      "status": "connected",
+      "entity_types": ["page", "database", "block"],
+      "operations": ["read", "write"],
+      "last_sync_at": "2026-06-22T14:02:11Z"
+    }
+  ]
+}
+```
+
+Connectors with `status: "disconnected"` are filtered out of the result.
+
+## `connector.read`
+
+Read canonical entities from a specific provider. The tool is **Spine-first**: it returns cached canonical rows when they exist, and otherwise signals that a connector fetch is needed.
+
+**When to use it.** Whenever an assistant needs to ground a response in real tenant data — for example, "summarize the latest Notion pages tagged `roadmap`".
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `provider` | string | yes | Provider key from `connector.list` (e.g. `notion`). |
+| `entity_type` | string | yes | Entity type to read (e.g. `page`, `contact`, `task`). |
+| `filters` | object | no | Provider-specific filters. |
+| `limit` | number | no | Maximum rows to return. Defaults to `20`. |
+
+### Example
+
+```json
+{
+  "name": "connector.read",
+  "arguments": {
+    "provider": "notion",
+    "entity_type": "page",
+    "limit": 10
+  }
+}
+```
+
+### Response
+
+When the Spine has cached data:
+
+```json
+{
+  "source": "spine_cache",
+  "entities": [
+    {
+      "id": "ent_01H…",
+      "type": "page",
+      "attributes": { "title": "Q3 roadmap", "…": "…" },
+      "source": "notion",
+      "freshness": "cached",
+      "lineage": ["evt_01H…"]
+    }
+  ]
+}
+```
+
+When nothing is cached yet, the tool returns `source: "connector_fetch_needed"` so the client knows to trigger a sync rather than retry blindly.
+
+## `connector.write`
+
+Propose a write to an external provider. The tool **always** creates a HandoffPackage proposal in the `PROPOSED` state — it never calls the provider directly.
+
+**When to use it.** Whenever an assistant or external agent needs to change something in a connected system (create a Notion page, update a contact, etc.). The proposal is reviewed and dispatched by the Approval Center, which enforces tenant governance rules, idempotency, and timeouts.
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `provider` | string | yes | Provider key (e.g. `notion`). |
+| `entity_type` | string | yes | Entity type to act on (e.g. `page`). |
+| `action` | string | yes | Action verb (e.g. `create`, `update`, `archive`). |
+| `params` | object | yes | Action-specific parameters. |
+
+### Example
+
+```json
+{
+  "name": "connector.write",
+  "arguments": {
+    "provider": "notion",
+    "entity_type": "page",
+    "action": "create",
+    "params": {
+      "parent_id": "db_01H…",
+      "title": "Customer call: Acme Corp",
+      "tags": ["sales", "discovery"]
+    }
+  }
+}
+```
+
+### Response
+
+```json
+{
+  "proposal_id": "prop_01H…",
+  "package_id": "pkg_01H…",
+  "state": "PROPOSED",
+  "message": "Write proposal created. Awaiting governance approval in Approval Center."
+}
+```
+
+The proposal expires after one hour if it is not approved. Hand `proposal_id` to your user or surface it in the Approval Center so a reviewer can act on it.
