@@ -1,0 +1,135 @@
+---
+title: "Memory Hub"
+description: "Search, propose, and govern organizational memory from a single workbench"
+---
+
+The Memory Hub is the primary surface for working with your tenant's memory — the curated, governed knowledge your agents draw on. Use it to find what is already known, propose new memory items, track them through governance, and control who can see what.
+
+The hub is organized into five tabs that follow the lifecycle of a memory item:
+
+| Tab | What you do here |
+| --- | --- |
+| **Search** | Hybrid search across org, personal, and conversational memory |
+| **Propose** | Submit a new memory item for governance review |
+| **Pending Review** | Watch your in-flight proposals move through governance |
+| **Promoted** | Browse memory that has been approved and is in active use |
+| **Visibility** | Control domain scoping, sharing, and flag items for re-review |
+
+## When to use the Memory Hub
+
+Reach for the Memory Hub when you need to:
+
+- Look up an existing decision, outcome, learning, or policy before acting.
+- Capture a durable fact or learning so future agents and teammates can reuse it.
+- Check whether a proposal you submitted has been approved, is still pending, or was rejected.
+- Adjust who can see a memory item, or flag an existing item for re-review.
+
+The hub is always scoped to your active **tenant** and **domain**. Switching domain narrows search and listing results to that domain's memory plus anything explicitly shared cross-domain.
+
+## Search
+
+The **Search** tab runs a hybrid (semantic + keyword) query across three memory stores in parallel:
+
+- `org_memory` — durable, governed organizational knowledge.
+- `personal_memory` — your individual workspace memory.
+- `conversational_memory` — context captured from recent agent conversations.
+
+Results are scoped to your tenant and active domain. Each result includes:
+
+- **Title and content snippet** so you can scan quickly.
+- **Store badge** — which memory store the item came from.
+- **Confidence score** — relevance for your query, shown as a percentage.
+- **Category, source, and evidence references** — the provenance you need to trust the result.
+- **Created date** — when the item entered memory.
+
+### How to search
+
+1. Open the **Search** tab.
+2. Type a natural-language query — for example, `Q3 renewal policy for enterprise tier`.
+3. Press **Search**.
+
+Results return ranked by confidence. If nothing matches, the hub shows `No results found` rather than guessing — that's your cue to either rephrase or propose a new memory item.
+
+## Propose
+
+Use the **Propose** tab to submit a new memory item. Proposals are routed through governance and **never written directly** to org memory. This guarantees that everything in promoted memory has been reviewed.
+
+### Memory types
+
+Pick the type that best matches the item:
+
+- `decision` — a choice that was made and the reasoning behind it.
+- `outcome` — what happened as a result of an action.
+- `learning` — a generalizable insight worth carrying forward.
+- `context` — situational background needed to interpret other facts.
+- `policy` — a rule or constraint that should govern future behavior.
+- `entity` — a durable fact about a person, account, product, or thing.
+
+### How to propose
+
+1. Open the **Propose** tab.
+2. Fill in the form:
+   - **Title** — a short, searchable summary.
+   - **Content** — the memory itself, written so a future reader (human or agent) can act on it.
+   - **Type** — one of the categories above.
+   - **Evidence References** — comma-separated fact IDs (for example, `fact-001, fact-002`) that back up the claim.
+3. Press **Submit Proposal**.
+
+On success, the form clears and you see `Memory proposal submitted for governance review.` The proposal moves into the **Pending Review** tab. If the submission is rejected by the gateway (for example, missing required fields or a tenant/domain mismatch), the form surfaces the error inline.
+
+<Tip>
+  Strong proposals cite at least one evidence reference. Items without evidence are more likely to be sent back during governance review.
+</Tip>
+
+## Pending Review
+
+The **Pending Review** tab lists every memory item in your tenant that is currently moving through governance. Each row shows:
+
+- **Title** and **category**.
+- **Governance state** — `staging`, `pending`, `approved`, or `rejected`.
+- **Last updated** timestamp.
+
+The tab polls the governance service every 10 seconds, so items advance in place without a refresh. A proposal typically flows `staging → pending → approved` (or `rejected`) — when it reaches `approved`, it disappears from this tab and appears on **Promoted**.
+
+Use this tab to confirm that the proposal you just submitted was received, and to watch its progress through review.
+
+## Promoted
+
+The **Promoted** tab is the read-only view of memory that has cleared governance and is in active use by agents and workflows. It uses the same row format as Pending Review but filters to `approved` items.
+
+Treat Promoted as the source of truth for what your tenant currently "knows." If a promoted item is wrong or out of date, switch to the **Visibility** tab to flag it for re-review.
+
+## Visibility
+
+The **Visibility** tab is where you control who can see each memory item. It lists items belonging to your active domain (or all domains if no domain is selected) with two controls per row.
+
+### Change visibility scope
+
+Each item has one of three visibility levels:
+
+- **Private** — only the owner can see the item.
+- **Domain Only** — everyone in the item's domain can see it.
+- **Cross-Domain** — the item is shared across domains in the tenant.
+
+Pick a new level from the dropdown to change scope immediately. The hub updates the row optimistically and persists the change through the governance API.
+
+### Flag for re-review
+
+If a promoted item is stale, contradicted by newer evidence, or simply wrong, press **Flag for Re-Review**. The item is marked with a 🚩 indicator and re-enters the governance queue so a reviewer can update or retract it.
+
+<Tip>
+  Flagging does not remove the item from Promoted immediately — it stays visible while governance reviews it, so dependent agents keep working with the current best-known answer.
+</Tip>
+
+## Where Memory Hub fits
+
+The Memory Hub is one of two primary surfaces external customers get in v3.7 RC1. The other is the Approval Center, where governance reviewers act on the proposals you submit here.
+
+A typical end-to-end flow:
+
+1. You **Search** to confirm a fact is not already captured.
+2. You **Propose** the fact with evidence.
+3. You watch it on **Pending Review** as it moves through governance.
+4. A reviewer acts on it in the Approval Center.
+5. The item appears on **Promoted** and is now visible to agents.
+6. If anything changes, you adjust scope or flag it on **Visibility**.
