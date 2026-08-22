@@ -1,0 +1,6 @@
+{
+  "name": "Mintlify Documentation",
+  "description": "Interactive documentation viewer and playground for Mintlify documentation sites",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
