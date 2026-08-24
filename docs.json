@@ -31,7 +31,35 @@
           "icon": "newspaper"
         }
       ]
-    }
+    },
+    "groups": [
+      {
+        "group": "SpineWorkspace",
+        "icon": "brain-circuit",
+        "pages": [
+          "spineworkspace/overview",
+          {
+            "group": "Architecture",
+            "icon": "diagram-project",
+            "pages": [
+              "spineworkspace/architecture/full-ontology"
+            ]
+          },
+          {
+            "group": "Product",
+            "icon": "grid-2",
+            "pages": []
+          }
+        ]
+      },
+      {
+        "group": "Getting Started",
+        "pages": [
+          "index",
+          "quickstart"
+        ]
+      }
+    ]
   },
   "logo": {
     "light": "/logo/light.svg",
