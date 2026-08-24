@@ -48,7 +48,30 @@
           {
             "group": "Product",
             "icon": "grid-2",
-            "pages": []
+            "pages": [
+              "spineworkspace/product/human-workbench",
+              "spineworkspace/product/agentic-workbench",
+              "spineworkspace/product/spine-fabric"
+            ]
+          },
+          {
+            "group": "Connect & Discover",
+            "icon": "plug",
+            "pages": [
+              "spineworkspace/connect/communications-bridge",
+              "spineworkspace/connect/integration-discovery",
+              "spineworkspace/connect/marketplaces",
+              "spineworkspace/connect/mcp"
+            ]
+          },
+          {
+            "group": "Developers",
+            "icon": "code",
+            "pages": [
+              "developers/spine-schema",
+              "developers/context-assembly",
+              "developers/capability-execution"
+            ]
           }
         ]
       },
