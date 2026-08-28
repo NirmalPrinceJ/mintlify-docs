@@ -16,6 +16,19 @@
           "index",
           "quickstart"
         ]
+      },
+      {
+        "group": "MCP integration",
+        "pages": [
+          "mcp/overview",
+          {
+            "group": "Tools reference",
+            "pages": [
+              "mcp/tools/connectors",
+              "mcp/tools/agents"
+            ]
+          }
+        ]
       }
     ],
     "global": {
