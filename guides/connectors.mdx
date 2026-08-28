@@ -1,0 +1,93 @@
+---
+title: "Connectors"
+description: "Connect CRM, support, billing, messaging, and document tools to fill your IntegrateWise workspace with live data."
+---
+
+Connectors are how your tools land on the Spine. Each connector authorizes once (OAuth through the Gateway), then runs continuously — webhooks for real-time updates, scheduled pulls for the rest.
+
+## How a connector works
+
+```
+You authorize (OAuth via Gateway)
+  → Credentials encrypted into the vault
+    → Webhook listeners + scheduled pullers go live
+      → Raw events enqueued (no transformation)
+        → 8-stage normalizer pipeline runs
+          → Spine entities created/updated
+            → Workspace fills in
+```
+
+Authorization is per-tenant. Tokens live in the encrypted vault. If the vault key is missing, the connector **fails loudly** rather than silently dropping data.
+
+## Connector categories
+
+| Category    | Examples                                       | Flow   | Surfaces                                    |
+| ----------- | ---------------------------------------------- | ------ | ------------------------------------------- |
+| CRM         | Salesforce, HubSpot, Pipedrive                 | Flow A | Accounts, contacts, deals                    |
+| Support     | Zendesk, Intercom, Freshdesk                   | Flow A | Tickets, conversations, escalations         |
+| Billing     | Stripe, Chargebee, Recurly                     | Flow A | Subscriptions, invoices, MRR                |
+| Messaging   | Slack, Microsoft Teams                         | Flow A + B | Threads, mentions, links                |
+| Documents   | Google Drive, Notion, Confluence               | Flow B | Files, pages, transcripts                   |
+| Code & Ops  | GitHub, Linear, Jira                           | Flow A | Issues, PRs, sprints                        |
+| Email       | Gmail, Outlook                                 | Flow B | Threads, attachments                        |
+| MCP         | ChatGPT, Claude, Perplexity, Cursor, VS Code   | Flow C | Read-only access to the Spine via MCP tools |
+
+See [Data flows](/concepts/data-flows) for how A, B, and C differ.
+
+## Connecting a tool
+
+<Steps>
+  <Step title="Open the connector catalog">
+    From your workspace, open the Onboarding flow or the connector settings. The catalog lists every available connector, grouped by category and labeled with the data it brings in.
+  </Step>
+  <Step title="Authorize via OAuth">
+    Click "Connect" on the tool you want. The Gateway redirects you through the tool's OAuth flow. Tokens come back encrypted and land in the vault — IntegrateWise never sees plaintext credentials.
+  </Step>
+  <Step title="Wait for the first sync">
+    Webhook listeners go live immediately. Scheduled pullers run their first backfill — usually within a minute or two for small accounts, longer for years of historical data.
+
+    You'll see entities appear in your workbench as the normalizer pipeline processes the backlog.
+  </Step>
+  <Step title="Verify in your workbench">
+    Open the relevant L1 workbench (Sales for CRM, Customer Success for support, BizOps for cross-functional) and confirm the entities look right.
+
+    Open the Twin (`⌘K` or the Twin workbench) and ask a question that requires the new connector's data — the answer should reference real records.
+  </Step>
+</Steps>
+
+## What never crosses the boundary
+
+A few invariants worth knowing:
+
+- **Plaintext credentials never leave the vault.** Connectors read from the vault at runtime; downstream workers never see raw secrets.
+- **Raw tool data never reaches the front end.** Only Spine-shaped entities. The L1 workbench has no concept of `entity_type` or vendor-specific field names.
+- **Twin proposals cannot call your tools directly.** Approved actions package into a Playbook that runs in your environment — see [Governance](/concepts/governance).
+
+## MCP: AI assistants as connectors
+
+Flow C connectors expose the Spine to external AI assistants via the Model Context Protocol. ChatGPT, Claude, Perplexity, Cursor, and VS Code can all read your tenant's Spine through scoped, tenant-isolated MCP tools.
+
+Reads are open (subject to tenant scope). Writes go through `memory.propose` and the Approval Center, just like the in-product Twin.
+
+## Troubleshooting
+
+- **Connector shows "degraded"** — usually a token refresh issue. Re-authorize from the connector settings.
+- **Entities aren't appearing** — check the pipeline status in the L7 Governance workbench (Customer Zero) or the founder `/metrics` dashboard. Look for queue backlog or DLQ entries.
+- **Vault errors on write** — the encryption key is missing or rotated. Connectors fail loud here intentionally; contact support before re-authorizing.
+
+## Related guides
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    The fastest path from signup to first connected tool.
+  </Card>
+  <Card title="Data flows" icon="arrows-to-circle" href="/concepts/data-flows">
+    What A, B, and C mean for a given connector.
+  </Card>
+  <Card title="The Spine" icon="database" href="/concepts/spine">
+    Where connector data ends up.
+  </Card>
+  <Card title="Governance" icon="shield-check" href="/concepts/governance">
+    How the Spine stays clean even with many connectors writing.
+  </Card>
+</CardGroup>

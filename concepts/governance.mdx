@@ -1,0 +1,118 @@
+---
+title: "Governance & approvals"
+description: "Human-in-the-loop approvals, the Triage Inbox, and the handoff layer."
+---
+
+IntegrateWise is designed around one principle: **the system can think, propose, and prepare execution, but a human must approve before anything leaves the platform.** Governance is not an add-on; it is the write path.
+
+## The Approval Center
+
+The Approval Center is the single place where proposed actions are reviewed, approved, rejected, and dispatched. It is reachable from the L2 cognitive overlay (`⌘J`) and as a dedicated surface.
+
+A proposal in the Approval Center moves through these states:
+
+| State              | Meaning                                                        |
+| ------------------ | -------------------------------------------------------------- |
+| `PENDING_REVIEW`   | Awaiting human review (from Twin, L2 insights, or signals)     |
+| `APPROVED`         | Passed governance — ready for dispatch                         |
+| `REJECTED`         | Denied with reasoning recorded in the audit trail              |
+| `HANDED_OFF`       | Dispatched to the customer's execution environment             |
+| `COMPLETED`        | Executor reported success; outcome is now learning fodder      |
+| `FAILED`           | Executor reported failure; the proposal is returned for triage |
+
+Every transition is audited. Every proposal carries its full evidence trail — the entities, signals, and memory the Twin used.
+
+## What goes through governance
+
+Three classes of action require approval:
+
+1. **Twin proposals** — anything the Twin generates from a chat session
+2. **L2 promotions** — when a user promotes an insight from the cognitive overlay into a workflow
+3. **Memory writes** — every write to `org_memory` lands in staging and waits for promotion
+
+There is no fourth bucket. If it changes state outside the workspace, it went through the Approval Center.
+
+## The Triage Inbox
+
+The **Triage Inbox** lives inside the L2 cognitive drawer (`⌘J`). It is the Flow C review surface — where AI-generated proposals sit while a human evaluates them.
+
+Triage shows each proposal with:
+
+- **The ask** — what the user originally requested
+- **The reasoning** — how the Twin got from ask to plan
+- **The evidence** — every Spine entity, signal, and memory item used
+- **The mutations** — exactly what would change, on which system
+
+A user can approve, reject, edit, or send back for refinement. Refinement returns the proposal to the Twin with feedback attached, and the next iteration learns from it.
+
+## Memory promotion
+
+Org memory has its own governance loop:
+
+```
+Twin / user / connector
+  → memory.propose (MCP tool)
+    → Staging table
+      → Governance queue
+        → Approved → published into org_memory
+        → Rejected → archived with reasoning
+```
+
+Direct writes to `org_memory` are blocked at the database layer. The `memory.propose` MCP tool is the only write path. This means a misbehaving agent cannot pollute org memory — it can only add to the staging queue, which a human curates.
+
+## The handoff layer
+
+For external customers, execution happens **outside** IntegrateWise. The Approval Center generates a canonical contract — the **Playbook** — that the customer runs in their own environment.
+
+Handoff targets:
+
+- **Export as JSON** — raw playbook, runnable by any executor
+- **Hermes** — IntegrateWise's reference runtime
+- **OpenClaw** — open-source executor
+- **MCP** — packaged as a Model Context Protocol bundle
+
+The handoff is async. After dispatch, IntegrateWise tracks state via signal-based feedback: the executor reports `STARTED`, `COMPLETED`, or `FAILED`, and the Spine records the outcome.
+
+This boundary protects credentials. IntegrateWise never holds your CRM, Slack, or Stripe API keys — the playbook runs where those credentials already live.
+
+## The audit trail
+
+Every proposal, approval, rejection, and outcome is recorded with:
+
+- Who proposed (Twin session, user, or system signal)
+- Who reviewed
+- What changed
+- Why (the evidence)
+- When (timestamps for every transition)
+- Where (which tenant, which domain partition, which executor)
+
+The audit trail is queryable from the L7 Governance Workbench in Customer Zero mode, and surfaced as compliance reports for external customers.
+
+## Why this matters
+
+The governance model is what makes IntegrateWise safe to give the keys to:
+
+- **The Twin cannot go rogue** — it can only propose; it cannot execute
+- **Connectors cannot escalate** — they can only enqueue raw events
+- **Memory cannot be poisoned** — direct writes are blocked
+- **Credentials never leave** — execution stays in the customer's environment
+- **Every change is reviewable** — the audit trail is complete by construction
+
+These properties hold by design, not by policy.
+
+## Related concepts
+
+<CardGroup cols={2}>
+  <Card title="The Twin" icon="brain" href="/concepts/twin">
+    Where most proposals come from.
+  </Card>
+  <Card title="Data flows" icon="arrows-to-circle" href="/concepts/data-flows">
+    Flow C — the AI write path, fully governed.
+  </Card>
+  <Card title="The Spine" icon="database" href="/concepts/spine">
+    The write-only-through-proposals data model.
+  </Card>
+  <Card title="Architecture" icon="diagram-project" href="/concepts/architecture">
+    Where governance sits in the L0 → L1 → L2 model.
+  </Card>
+</CardGroup>

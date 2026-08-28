@@ -1,0 +1,95 @@
+---
+title: "Architecture"
+description: "The three-layer (L0 → L1 → L2) IntegrateWise model and the Cloudflare-native backend that powers it."
+---
+
+IntegrateWise is documented through two distinct dimensions: the **user views** (the operating surface) and the **systems engine** (the backend that drives the workspace). Both sides share the same Spine.
+
+## Three layers
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ L0: ONBOARDING                                                              │
+│ Tenant creation → Plan selection → Domain Accelerator → Connector OAuth    │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                       │
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ L1: WORKSPACE (Frontend)                                                    │
+│ Today View, Accounts, Tasks, Health Cards — organic views only             │
+│ No entity_type, no field names, no schema knowledge                        │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                       │ HTTPS / JSON / API contracts
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ L2: COGNITIVE OVERLAY + BACKEND                                             │
+│ Signals, insights, Twin, Spine, pipeline, governance                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+- **L0 — Onboarding.** A guided ~2-minute path: create the tenant, pick a plan, select your domain accelerator, authorize tools.
+- **L1 — Workspace.** Dense, domain-scoped workbenches that show entities and outcomes only. The front end never sees `entity_type`, raw field names, or schema details.
+- **L2 — Cognitive Overlay.** Always-on intelligence drawer (`⌘J`) plus the backend that produces signals, insights, Twin reasoning, governance, and memory.
+
+## User views vs. systems engine
+
+### User views (operating surface)
+
+What the user actually sees:
+
+- **Onboarding flow (`OnboardingFlow.tsx`)** — seeds workspace goals, authorizes connectors, builds instant tenant context.
+- **Domain workbenches (`DepartmentWorkbench.tsx`)** — Customer Success, Sales, RevOps, BizOps, Product Engineering, Marketing, Personal — each with role-scoped metrics, entity timelines, and health rings.
+- **Command palette (`⌘K`)** — live Spine entity search, quick navigation, and action creation.
+- **L2 Cognitive Drawer (`⌘J`)** — floating panel hosting the proactive **Think** engine, the **Triage Inbox** for Flow C human review, and real-time **Signals / Approvals (HITL)**.
+- **Playbook boundary** — approved actions hand off as a client-side executable **Playbook (JSON)**, protecting credentials inside the customer's own environment.
+
+### Systems engine (backend)
+
+The serverless Cloudflare Workers infrastructure under the surface:
+
+- **Ingestion ingress (`CONNECTOR` / Loader)** — secure webhook receivers and scheduled API pullers that enqueue raw events. No transformation here.
+- **8-stage pipeline (`PIPELINE` / Normalizer)** — queue consumer that classifies, filters, and normalizes raw data into canonical resource schemas.
+- **Edge memory plane (D1 + KV)** — indexed SQLite domain tables (`decide_data`, `build_data`, `grow_data`, `run_data`, `cross_data`) plus hot entity KV caches. The Twin reads its morning brief from here in milliseconds.
+- **Fortress DB (Supabase SSOT)** — authoritative, row-level-isolated Postgres. Direct writes from downstream workers are prohibited; everything proxies through the pipeline's `/api/v1/db-proxy`.
+- **Zero-trust service bindings** — downstream workers are unexposed to the internet. Public traffic enters only through `gateway.integratewise.ai`.
+
+## The core loop
+
+```
+Connect tools
+  → Data flows in
+    → Engine normalizes
+      → Spine stores truth
+        → Intelligence surfaces what matters
+          → User reviews and approves
+            → Action executes
+              → System learns
+```
+
+Every cycle makes the next one smarter. AI learns from human decisions. The Spine grows with the business.
+
+## Two operating modes
+
+| Mode                 | Surface             | Visibility                                       |
+| -------------------- | ------------------- | ------------------------------------------------ |
+| **Customer Zero**    | All 7 layers + 12 backend stages   | Internal IntegrateWise + demos                    |
+| **External Customer** | 5 layers + Handoff Layer | What every paying tenant sees                    |
+
+In Customer Zero mode, L5 (Operations) and L6 (Execution) are visible and the full loop closes inside IntegrateWise. In External Customer mode, execution is **handed off** as a canonical contract — the customer runs it in their own environment and IntegrateWise tracks state asynchronously.
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="The Spine" icon="database" href="/concepts/spine">
+    The unified data model behind every entity and insight.
+  </Card>
+  <Card title="Data flows" icon="arrows-to-circle" href="/concepts/data-flows">
+    Flow A (structured), Flow B (unstructured), Flow C (AI sessions).
+  </Card>
+  <Card title="The Twin" icon="brain" href="/concepts/twin">
+    Conversational reasoning grounded in the Spine.
+  </Card>
+  <Card title="Governance" icon="shield-check" href="/concepts/governance">
+    Human-in-the-loop approvals and the handoff layer.
+  </Card>
+</CardGroup>
